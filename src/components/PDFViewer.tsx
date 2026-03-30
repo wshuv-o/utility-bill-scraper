@@ -16,6 +16,7 @@ interface PDFViewerProps {
   session: PDFSession;
   onHighlightsChange: (sessionId: string, highlights: Record<number, Highlight[]>) => void;
   onExtract: () => void;
+  onAutoExtract: () => void;
   extracting: boolean;
 }
 
