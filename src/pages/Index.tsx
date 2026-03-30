@@ -7,7 +7,7 @@ import ProcessingModal from '@/components/ProcessingModal';
 import PDFViewer from '@/components/PDFViewer';
 import ExcelPanel from '@/components/ExcelPanel';
 import type { PDFSession, Highlight, ExtractedRow } from '@/types/utilscraper';
-import { processFile, extractRegions, isBackendOnline } from '@/lib/mock-api';
+import { processFile, extractRegions, autoExtract, isBackendOnline } from '@/lib/mock-api';
 import { AlertTriangle, FileSearch } from 'lucide-react';
 
 export default function Index() {
