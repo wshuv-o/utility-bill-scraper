@@ -138,6 +138,7 @@ export default function PDFViewer({ session, onHighlightsChange, onExtract, onAu
         onZoomChange={setZoom}
         onToolChange={(t) => { setTool(t); if (t === 'eraser') handleEraseAll(); }}
         onExtract={onExtract}
+        onAutoExtract={onAutoExtract}
         extracting={extracting}
         hasHighlights={allHighlights.length > 0}
       />
