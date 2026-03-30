@@ -113,10 +113,22 @@ export default function ViewerToolbar({
         <span className="text-xs px-2 py-0.5 rounded-full bg-primary-foreground/10 text-primary-foreground/60">📄 Native Text</span>
       )}
 
-      {/* Extract */}
+      {/* Auto Extract */}
       <Button
         size="sm"
-        className="ml-2 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold text-xs h-8 px-4"
+        variant="outline"
+        className="ml-2 font-semibold text-xs h-8 px-3 border-accent/40 text-accent hover:bg-accent/10"
+        disabled={extracting}
+        onClick={onAutoExtract}
+      >
+        {extracting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+        ⚡ Auto-Extract
+      </Button>
+
+      {/* Manual Extract */}
+      <Button
+        size="sm"
+        className="bg-accent text-accent-foreground hover:bg-accent/90 font-semibold text-xs h-8 px-4"
         disabled={!hasHighlights || extracting}
         onClick={onExtract}
       >
