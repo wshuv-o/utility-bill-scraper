@@ -20,7 +20,7 @@ interface PDFViewerProps {
   extracting: boolean;
 }
 
-export default function PDFViewer({ session, onHighlightsChange, onExtract, extracting }: PDFViewerProps) {
+export default function PDFViewer({ session, onHighlightsChange, onExtract, onAutoExtract, extracting }: PDFViewerProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [tool, setTool] = useState<ViewerTool>('cursor');
