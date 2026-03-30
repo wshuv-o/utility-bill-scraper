@@ -1,5 +1,5 @@
 import type { PageInfo, Highlight, ExtractedRow } from '@/types/utilscraper';
-import { extractFromRegions, extractTextFromPdf, autoExtractFields } from './pdf-extract';
+import { extractFromRegions, autoExtractWithHighlights } from './pdf-extract';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
