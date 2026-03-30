@@ -92,9 +92,8 @@ export default function Index() {
 
     setExtracting(true);
     try {
-      const results = await extractRegions(expandedSession.id, allHighlights);
+      const results = await extractRegions(expandedSession.id, allHighlights, expandedSession.file);
 
-      // Update highlights with extracted values
       const newHighlights = { ...expandedSession.highlights };
       for (const [pageNum, pageHls] of Object.entries(newHighlights)) {
         newHighlights[Number(pageNum)] = pageHls.map(h => {
@@ -120,6 +119,34 @@ export default function Index() {
     }
     setExtracting(false);
   }, [expandedSession]);
+
+  const handleAutoExtract = useCallback(async () => {
+    if (!expandedSession) return;
+    setExtracting(true);
+    try {
+      const results = await autoExtract(expandedSession.file, provider);
+
+      setSessions(prev =>
+        prev.map(s =>
+          s.id === expandedSession.id
+            ? { ...s, extractedData: results, status: 'extracted' as const }
+            : s
+        )
+      );
+      setShowExcel(true);
+
+      if (results.length === 0) {
+        toast.warning('No fields detected. Try drawing highlight boxes manually.');
+      } else {
+        const nullCount = results.filter(r => !r.value).length;
+        toast.success(`Auto-extracted ${results.length} values across all pages`);
+        if (nullCount > 0) toast.warning(`${nullCount} fields returned empty`);
+      }
+    } catch (err: any) {
+      toast.error(`Auto-extraction failed: ${err.message}`);
+    }
+    setExtracting(false);
+  }, [expandedSession, provider]);
 
   const hasUploaded = sessions.length > 0 || pendingFiles.length > 0;
 
