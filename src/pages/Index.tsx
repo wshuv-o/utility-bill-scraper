@@ -142,6 +142,7 @@ export default function Index() {
             compact={hasUploaded}
             onFilesSelected={handleFilesSelected}
             hasFiles={pendingFiles.length > 0}
+            pendingFiles={pendingFiles}
             onProcess={handleProcess}
             processing={processing}
           />
