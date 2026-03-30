@@ -1,13 +1,16 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import type { PDFSession, Highlight, FieldLabel, ViewerTool } from '@/types/utilscraper';
-import { FIELD_LABELS, getFieldConfig } from '@/types/utilscraper';
+import { getFieldConfig } from '@/types/utilscraper';
 import ViewerToolbar from './ViewerToolbar';
 import HighlightOverlay from './HighlightOverlay';
 import FieldLabelPicker from './FieldLabelPicker';
 import HighlightLegend from './HighlightLegend';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
 
 interface PDFViewerProps {
   session: PDFSession;
@@ -23,13 +26,23 @@ export default function PDFViewer({ session, onHighlightsChange, onExtract, extr
   const [drawing, setDrawing] = useState<{ startX: number; startY: number; x: number; y: number; w: number; h: number } | null>(null);
   const [pickerPos, setPickerPos] = useState<{ x: number; y: number; rect: { x: number; y: number; w: number; h: number } } | null>(null);
   const [showFirstHint, setShowFirstHint] = useState(true);
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
-  const [pageSize, setPageSize] = useState<{ width: number; height: number } | null>(null);
 
-  const totalPages = session.total_pages;
+  const totalPages = numPages || session.total_pages;
   const pageHighlights = session.highlights[currentPage] || [];
   const currentPageInfo = session.pages.find(p => p.page_number === currentPage);
   const allHighlights = Object.values(session.highlights).flat();
+
+  // Create a stable object URL from the File
+  useEffect(() => {
+    if (session.file) {
+      const url = URL.createObjectURL(session.file);
+      setFileUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+  }, [session.file]);
 
   const updateHighlights = useCallback((pageNum: number, hl: Highlight[]) => {
     const next = { ...session.highlights, [pageNum]: hl };
@@ -108,7 +121,9 @@ export default function PDFViewer({ session, onHighlightsChange, onExtract, extr
     return () => window.removeEventListener('keydown', handler);
   }, [pickerPos]);
 
-  const containerWidth = pageRef.current?.parentElement?.clientWidth;
+  if (!fileUrl) {
+    return <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading PDF...</div>;
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -127,7 +142,6 @@ export default function PDFViewer({ session, onHighlightsChange, onExtract, extr
       />
 
       <div className="flex-1 overflow-auto bg-viewer relative custom-scrollbar">
-        {/* First highlight hint */}
         {showFirstHint && tool === 'highlight' && allHighlights.length === 0 && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
             <div className="bg-foreground/70 text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium backdrop-blur">
@@ -146,13 +160,14 @@ export default function PDFViewer({ session, onHighlightsChange, onExtract, extr
             onMouseUp={handleMouseUp}
           >
             <Document
-              file={session.file}
+              file={fileUrl}
+              onLoadSuccess={(pdf) => setNumPages(pdf.numPages)}
               loading={<div className="w-[600px] h-[800px] bg-card animate-pulse rounded" />}
+              error={<div className="w-[600px] h-[400px] flex items-center justify-center text-destructive text-sm">Failed to load PDF</div>}
             >
               <Page
                 pageNumber={currentPage}
                 scale={zoom * 1.5}
-                onLoadSuccess={(page) => setPageSize({ width: page.width, height: page.height })}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
               />
