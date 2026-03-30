@@ -15,6 +15,7 @@ interface ViewerToolbarProps {
   onZoomChange: (z: number) => void;
   onToolChange: (t: ViewerTool) => void;
   onExtract: () => void;
+  onAutoExtract: () => void;
   extracting: boolean;
   hasHighlights: boolean;
 }
