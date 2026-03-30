@@ -31,7 +31,7 @@ const ZOOM_OPTIONS = [
 
 export default function ViewerToolbar({
   currentPage, totalPages, zoom, tool, isOcr,
-  onPageChange, onZoomChange, onToolChange, onExtract, extracting, hasHighlights,
+  onPageChange, onZoomChange, onToolChange, onExtract, onAutoExtract, extracting, hasHighlights,
 }: ViewerToolbarProps) {
   const toolBtn = (t: ViewerTool, icon: React.ReactNode, label: string) => (
     <Tooltip>
