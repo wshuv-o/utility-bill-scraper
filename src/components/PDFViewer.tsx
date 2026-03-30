@@ -1,7 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
 import type { PDFSession, Highlight, FieldLabel, ViewerTool } from '@/types/utilscraper';
 import { FIELD_LABELS, getFieldConfig } from '@/types/utilscraper';
 import ViewerToolbar from './ViewerToolbar';
