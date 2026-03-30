@@ -1,5 +1,5 @@
 import type { PageInfo, Highlight, ExtractedRow } from '@/types/utilscraper';
-import { extractFromRegions, extractTextFromPdf, autoExtractFields } from './pdf-extract';
+import { extractFromRegions, autoExtractWithHighlights } from './pdf-extract';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -156,13 +156,13 @@ export async function extractRegions(
 
 /**
  * Auto-extract all fields from all pages using text analysis.
+ * Returns rows and highlight positions for visual feedback.
  */
 export async function autoExtract(
   file: File,
   provider: string,
-): Promise<ExtractedRow[]> {
-  const pageTexts = await extractTextFromPdf(file);
-  return autoExtractFields(pageTexts, provider);
+): Promise<{ rows: ExtractedRow[]; highlights: Record<number, import('@/types/utilscraper').Highlight[]> }> {
+  return autoExtractWithHighlights(file, provider);
 }
 
 function delay(ms: number) {

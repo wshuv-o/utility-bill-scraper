@@ -124,22 +124,29 @@ export default function Index() {
     if (!expandedSession) return;
     setExtracting(true);
     try {
-      const results = await autoExtract(expandedSession.file, provider);
+      const { rows, highlights } = await autoExtract(expandedSession.file, provider);
+
+      // Merge auto-extract highlights with any existing manual highlights
+      const mergedHighlights = { ...expandedSession.highlights };
+      for (const [pageNum, pageHls] of Object.entries(highlights)) {
+        const pg = Number(pageNum);
+        mergedHighlights[pg] = [...(mergedHighlights[pg] || []), ...pageHls];
+      }
 
       setSessions(prev =>
         prev.map(s =>
           s.id === expandedSession.id
-            ? { ...s, extractedData: results, status: 'extracted' as const }
+            ? { ...s, extractedData: rows, highlights: mergedHighlights, status: 'extracted' as const }
             : s
         )
       );
       setShowExcel(true);
 
-      if (results.length === 0) {
+      if (rows.length === 0) {
         toast.warning('No fields detected. Try drawing highlight boxes manually.');
       } else {
-        const nullCount = results.filter(r => !r.value).length;
-        toast.success(`Auto-extracted ${results.length} values across all pages`);
+        const nullCount = rows.filter(r => !r.value).length;
+        toast.success(`Auto-extracted ${rows.length} values across all pages`);
         if (nullCount > 0) toast.warning(`${nullCount} fields returned empty`);
       }
     } catch (err: any) {
