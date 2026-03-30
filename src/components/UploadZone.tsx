@@ -6,11 +6,12 @@ interface UploadZoneProps {
   compact: boolean;
   onFilesSelected: (files: File[]) => void;
   hasFiles: boolean;
+  pendingFiles: File[];
   onProcess: () => void;
   processing: boolean;
 }
 
-export default function UploadZone({ compact, onFilesSelected, hasFiles, onProcess, processing }: UploadZoneProps) {
+export default function UploadZone({ compact, onFilesSelected, hasFiles, pendingFiles, onProcess, processing }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -29,16 +30,33 @@ export default function UploadZone({ compact, onFilesSelected, hasFiles, onProce
 
   if (compact) {
     return (
-      <div
-        className="border border-dashed border-border rounded-lg p-3 flex items-center gap-3 cursor-pointer hover:border-accent transition-colors"
-        onClick={() => inputRef.current?.click()}
-        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-      >
-        <Upload className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">Drop more PDFs or click to browse</span>
-        <input ref={inputRef} type="file" accept=".pdf" multiple className="hidden" onChange={handleChange} />
+      <div className="space-y-2.5">
+        <div
+          className="border border-dashed border-border rounded-lg p-3 flex items-center gap-3 cursor-pointer hover:border-accent transition-colors"
+          onClick={() => inputRef.current?.click()}
+          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+        >
+          <Upload className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Drop more PDFs or click to browse</span>
+          <input ref={inputRef} type="file" accept=".pdf" multiple className="hidden" onChange={handleChange} />
+        </div>
+
+        {hasFiles && (
+          <>
+            <div className="text-xs text-muted-foreground truncate">
+              Pending: {pendingFiles.map(file => file.name).join(', ')}
+            </div>
+            <Button
+              className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold"
+              onClick={onProcess}
+              disabled={processing}
+            >
+              {processing ? 'Processing...' : `Process PDF${pendingFiles.length > 1 ? 's' : ''}`}
+            </Button>
+          </>
+        )}
       </div>
     );
   }
