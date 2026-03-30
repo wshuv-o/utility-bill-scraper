@@ -198,6 +198,7 @@ export default function Index() {
                 session={expandedSession}
                 onHighlightsChange={handleHighlightsChange}
                 onExtract={handleExtract}
+                onAutoExtract={handleAutoExtract}
                 extracting={extracting}
               />
             </div>
