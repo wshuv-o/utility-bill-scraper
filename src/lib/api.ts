@@ -135,22 +135,45 @@ export async function extractRegions(
   // Try backend — sends highlights from ALL pages at once
   try {
     if (backendOnline && !sessionId.startsWith('local-')) {
-      const res = await fetch(`${BACKEND_URL}/api/utility/extract-regions`, {
+      const body = JSON.stringify({
+        session_id: sessionId,
+        highlights: highlights.map(h => ({
+          page: h.page, field: h.field,
+          x: h.x, y: h.y, width: h.width, height: h.height,
+        })),
+      });
+
+      let res = await fetch(`${BACKEND_URL}/api/utility/extract-regions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: sessionId,
-          // Send every highlight from every page
-          highlights: highlights.map(h => ({
-            page:   h.page,
-            field:  h.field,
-            x:      h.x,
-            y:      h.y,
-            width:  h.width,
-            height: h.height,
-          })),
-        }),
+        body,
       });
+
+      // 404 = session expired — re-process the file and retry once
+      if (res.status === 404 && file) {
+        console.warn('Session expired — re-uploading file and retrying...');
+        const formData = new FormData();
+        formData.append('file', file);
+        const reprocess = await fetch(`${BACKEND_URL}/api/utility/process`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (reprocess.ok) {
+          const redata = await reprocess.json();
+          const retryBody = JSON.stringify({
+            session_id: redata.session_id,
+            highlights: highlights.map(h => ({
+              page: h.page, field: h.field,
+              x: h.x, y: h.y, width: h.width, height: h.height,
+            })),
+          });
+          res = await fetch(`${BACKEND_URL}/api/utility/extract-regions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: retryBody,
+          });
+        }
+      }
 
       if (res.ok) {
         const data = await res.json();

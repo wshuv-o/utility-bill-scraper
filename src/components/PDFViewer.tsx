@@ -6,10 +6,8 @@ import HighlightOverlay from './HighlightOverlay';
 import FieldLabelPicker from './FieldLabelPicker';
 import HighlightLegend from './HighlightLegend';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
+// Use CDN worker — avoids Vite bundling issues with web workers
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PDFViewerProps {
   session: PDFSession;
@@ -153,7 +151,7 @@ export default function PDFViewer({
         id:     `hl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         page:   currentPage,
         // Use customLabel as field value when provided (Custom... option)
-        field:  (customLabel ?? field) as FieldLabel,
+        field:  customLabel ?? field,
         x:      pickerPos.rect.x,
         y:      pickerPos.rect.y,
         width:  pickerPos.rect.w,
