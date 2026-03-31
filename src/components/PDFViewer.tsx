@@ -6,7 +6,8 @@ import HighlightOverlay from './HighlightOverlay';
 import FieldLabelPicker from './FieldLabelPicker';
 import HighlightLegend from './HighlightLegend';
 
-// Use CDN worker — avoids Vite bundling issues with web workers
+// Set worker unconditionally — pdf-extract.ts also sets this
+// so pdfjs works both in viewer and in api.ts calls
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PDFViewerProps {

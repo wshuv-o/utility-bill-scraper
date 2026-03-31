@@ -1,7 +1,11 @@
-/* eslint-disable no-useless-escape */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { pdfjs } from 'react-pdf';
 import type { ExtractedRow, FieldLabel, Highlight } from '@/types/utilscraper';
+
+// Set worker here so pdfjs works in any context (api.ts, pdf-extract.ts)
+// not just when PDFViewer is mounted.
+if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+}
 
 // ---------------------------------------------------------------------------
 // Extract all text from a PDF file, page by page
@@ -234,9 +238,17 @@ function findTextPosition(
   const maxScore = Math.max(...scored.map(s => s.score));
   const best = scored.filter(s => s.score === maxScore).map(s => s.item);
 
-  // If multiple items match (e.g. "226.77" appears 6x), take the first one
-  // (bills are read top-to-bottom, first match is usually the right one)
-  const selected = best.length > 2 ? [best[0]] : best;
+  // When duplicates exist (e.g. "$269.43" appears in account balance AND amount due),
+  // always take the TOPMOST occurrence (smallest Y top-down).
+  // Primary field values on utility bills always appear near the top of the page —
+  // the mailing stub and footnotes at the bottom are duplicates we want to skip.
+  const sorted = best.slice().sort((a, b) => {
+    const yA = pageHeight - a.transform[5]; // top-down Y for item A
+    const yB = pageHeight - b.transform[5]; // top-down Y for item B
+    return yA - yB;
+  });
+  // Take only the topmost item to get the tightest, most accurate box
+  const selected = [sorted[0]];
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
@@ -403,7 +415,8 @@ export async function findTextPositionInPdf(
       vp.width,
       vp.height,
     );
-  } catch {
+  } catch (err) {
+    console.warn('[findTextPositionInPdf] failed:', err);
     return null;
   }
 }
