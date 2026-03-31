@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import type { PDFSession, Highlight, FieldLabel, ViewerTool } from '@/types/utilscraper';
 import ViewerToolbar from './ViewerToolbar';
@@ -42,14 +42,26 @@ export default function PDFViewer({
 
   const pageRef = useRef<HTMLDivElement>(null);
 
-  const totalPages      = numPages ?? session.total_pages;
-  const pageHighlights  = session.highlights[currentPage] ?? [];
-  const allHighlights   = Object.values(session.highlights).flat();
+  const totalPages = numPages ?? session.total_pages;
+
+  // Memoised so useCallback deps don't change on every render
+  const pageHighlights = useMemo(
+    () => session.highlights[currentPage] ?? [],
+    [session.highlights, currentPage],
+  );
+
+  const allHighlights = useMemo(
+    () => Object.values(session.highlights).flat(),
+    [session.highlights],
+  );
 
   // Guard: pages array may be empty during upload/processing
-  const currentPageInfo = Array.isArray(session.pages)
-    ? session.pages.find(p => p.page_number === currentPage)
-    : undefined;
+  const currentPageInfo = useMemo(
+    () => Array.isArray(session.pages)
+      ? session.pages.find(p => p.page_number === currentPage)
+      : undefined,
+    [session.pages, currentPage],
+  );
 
   // Stable object URL from the File — revoked on unmount or file change
   useEffect(() => {

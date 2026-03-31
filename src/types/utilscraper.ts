@@ -27,6 +27,7 @@ export interface Highlight {
   extractedValue?: string | null;
   confidence?: 'high' | 'medium' | 'low';
   wasOcr?: boolean;
+  isAutoExtracted?: boolean;  // true = coords are approximate, skip on Re-Extract
 }
 
 export type FieldLabel =

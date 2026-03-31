@@ -12,7 +12,7 @@ interface Props {
 export default function HighlightOverlay({ highlights, drawing, onDelete, tool }: Props) {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {highlights.map(h => {
+      {highlights.filter(h => h.width > 0 && h.height > 0).map(h => {
         const cfg = getFieldConfig(h.field);
 
         // extractedValue can be null (not found) or a string (found) or undefined (not yet extracted)

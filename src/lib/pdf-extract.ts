@@ -409,12 +409,18 @@ export async function findTextPositionInPdf(
 
     if (isScannedPage(content.items as any[])) return null;
 
-    return findTextPosition(
-      content.items as any[],
-      searchText,
-      vp.width,
-      vp.height,
-    );
+    // pdfjs often splits "$226.77" into two items: "$" and "226.77"
+    // Strip currency symbols and search for just the numeric part
+    const cleanedSearch = searchText
+      .replace(/^\$\s*/, '')   // remove leading $
+      .replace(/,/g, '')        // remove thousand separators
+      .trim();
+
+    // Try cleaned version first, fall back to original
+    const result = findTextPosition(content.items as any[], cleanedSearch, vp.width, vp.height)
+      ?? findTextPosition(content.items as any[], searchText, vp.width, vp.height);
+
+    return result;
   } catch (err) {
     console.warn('[findTextPositionInPdf] failed:', err);
     return null;
