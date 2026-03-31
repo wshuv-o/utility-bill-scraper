@@ -8,9 +8,12 @@ interface AppHeaderProps {
 const PROVIDERS = [
   'National Grid Gas',
   'Con Edison',
-  'PSEG',
-  'National Fuel',
-  'KeySpan',
+  'Spectrum Phone & Internet',
+  'FPL Northwest energy',
+  'Chipley',
+  'NYC Environmental Protection',
+  'Tiffany Water & Sewer',
+
 ];
 
 export default function AppHeader({ provider, onProviderChange }: AppHeaderProps) {
