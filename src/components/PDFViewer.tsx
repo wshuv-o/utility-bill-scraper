@@ -263,12 +263,15 @@ export default function PDFViewer({
         )}
 
         <div className="flex justify-center p-6">
+          {/* pageRef shrink-wraps the canvas via inline-block so HighlightOverlay
+              (absolute inset-0) aligns pixel-perfectly with the rendered PDF */}
           <div
             ref={pageRef}
             className="relative shadow-2xl select-none"
             style={{
-              cursor: tool === 'highlight' ? 'crosshair' : 'default',
-              // Prevent text selection while drawing
+              display:    'inline-block',
+              lineHeight: 0,
+              cursor:     tool === 'highlight' ? 'crosshair' : 'default',
               userSelect: tool === 'highlight' ? 'none' : 'auto',
             }}
             onMouseDown={handleMouseDown}
@@ -289,8 +292,6 @@ export default function PDFViewer({
             >
               <Page
                 pageNumber={currentPage}
-                // zoom=1 → renders at natural 100% scale
-                // zoom multiplied directly, not by a hidden 1.5x factor
                 scale={zoom}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}

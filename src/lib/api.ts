@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { PageInfo, Highlight, ExtractedRow } from '@/types/utilscraper';
-import { extractFromRegions, autoExtractWithHighlights, findTextPositionInPdf } from './pdf-extract';
+import { extractFromRegions, autoExtractWithHighlights } from './pdf-extract';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -296,61 +297,38 @@ export async function autoExtract(
           }
         }
 
-        // Build highlights:
-        // - Native pages → use pdfjs to find exact text position
-        // - OCR pages    → no rect (pdfjs has no text layer), store value only
-        //
-        // IMPORTANT: for OCR pages we intentionally do NOT store x/y/w/h coords
-        // because the backend's hardcoded approximate coords are wrong and would
-        // cause garbage text if ever re-cropped. The extractedValue is stored
-        // directly on the highlight so Re-Extract skips re-cropping it.
+        // Build highlights using EXACT positions from backend (PyMuPDF search).
+        // Backend computes precise coords for native pages via page.search_for()
+        // and uses tight approximate coords for OCR/scanned pages.
         const highlights: Record<number, Highlight[]> = {};
         for (const row of rows) {
           const pageNum = row.page;
           if (!highlights[pageNum]) highlights[pageNum] = [];
 
-          // Find visual position for the highlight box
-          let rect: { x: number; y: number; width: number; height: number } | null = null;
+          // Get backend highlight coords for this field
+          const pageHls: any[] =
+            data.highlights?.[String(row.page)] ||
+            data.highlights?.[row.page] ||
+            [];
 
-          if (!row.wasOcr && row.value) {
-            // Native page — find exact position via pdfjs text layer
-            rect = await findTextPositionInPdf(file, row.page, row.value);
-          }
-
-          if (!rect) {
-            // OCR page OR pdfjs couldn't find text —
-            // use backend approximate coords for DISPLAY ONLY.
-            // isAutoExtracted=true prevents Re-Extract from re-cropping these.
-            // Backend returns highlights keyed by string page number in JSON,
-            // try both string and number keys to be safe.
-            const pageHighlights: any[] = 
-              data.highlights?.[String(row.page)] ||
-              data.highlights?.[row.page] ||
-              [];
-
-            const backendHl = pageHighlights.find((h: any) => {
-              // Normalise field names for comparison
-              const hf = h.field === 'billing_date_start' ? 'billing_date' : h.field;
-              const rf = row.field === 'billing_date_start' ? 'billing_date' : row.field;
-              return hf === rf;
-            });
-            if (backendHl) {
-              rect = { x: backendHl.x, y: backendHl.y, width: backendHl.width, height: backendHl.height };
-            }
-          }
+          const backendHl = pageHls.find((h: any) => {
+            const hf = h.field === 'billing_date_start' ? 'billing_date' : h.field;
+            const rf = row.field === 'billing_date_start' ? 'billing_date' : row.field;
+            return hf === rf;
+          });
 
           highlights[pageNum].push({
             id:              `auto-${row.page}-${row.field}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
             page:            row.page,
             field:           row.field,
-            x:               rect?.x      ?? 0,
-            y:               rect?.y      ?? 0,
-            width:           rect?.width  ?? 0,
-            height:          rect?.height ?? 0,
+            x:               backendHl?.x      ?? 0,
+            y:               backendHl?.y      ?? 0,
+            width:           backendHl?.width  ?? 0,
+            height:          backendHl?.height ?? 0,
             extractedValue:  row.value,
             confidence:      row.confidence,
             wasOcr:          row.wasOcr,
-            isAutoExtracted: true,   // ← marks this as display-only, skip on Re-Extract
+            isAutoExtracted: true,
           });
         }
 
