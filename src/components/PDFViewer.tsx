@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import type { PDFSession, Highlight, FieldLabel, ViewerTool } from '@/types/utilscraper';
-import { getFieldConfig } from '@/types/utilscraper';
 import ViewerToolbar from './ViewerToolbar';
 import HighlightOverlay from './HighlightOverlay';
 import FieldLabelPicker from './FieldLabelPicker';
@@ -20,110 +19,199 @@ interface PDFViewerProps {
   extracting: boolean;
 }
 
-export default function PDFViewer({ session, onHighlightsChange, onExtract, onAutoExtract, extracting }: PDFViewerProps) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [zoom, setZoom] = useState(1);
-  const [tool, setTool] = useState<ViewerTool>('cursor');
-  const [drawing, setDrawing] = useState<{ startX: number; startY: number; x: number; y: number; w: number; h: number } | null>(null);
-  const [pickerPos, setPickerPos] = useState<{ x: number; y: number; rect: { x: number; y: number; w: number; h: number } } | null>(null);
+export default function PDFViewer({
+  session,
+  onHighlightsChange,
+  onExtract,
+  onAutoExtract,
+  extracting,
+}: PDFViewerProps) {
+  const [currentPage, setCurrentPage]   = useState(1);
+  const [zoom, setZoom]                 = useState(1.0);
+  const [tool, setTool]                 = useState<ViewerTool>('cursor');
+  const [drawing, setDrawing]           = useState<{
+    startX: number; startY: number;
+    x: number; y: number; w: number; h: number;
+  } | null>(null);
+  const [pickerPos, setPickerPos]       = useState<{
+    x: number; y: number;
+    rect: { x: number; y: number; w: number; h: number };
+  } | null>(null);
   const [showFirstHint, setShowFirstHint] = useState(true);
-  const [numPages, setNumPages] = useState<number | null>(null);
-  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [numPages, setNumPages]         = useState<number | null>(null);
+  const [fileUrl, setFileUrl]           = useState<string | null>(null);
+
   const pageRef = useRef<HTMLDivElement>(null);
 
-  const totalPages = numPages || session.total_pages;
-  const pageHighlights = session.highlights[currentPage] || [];
-  const currentPageInfo = session.pages.find(p => p.page_number === currentPage);
-  const allHighlights = Object.values(session.highlights).flat();
+  const totalPages      = numPages ?? session.total_pages;
+  const pageHighlights  = session.highlights[currentPage] ?? [];
+  const allHighlights   = Object.values(session.highlights).flat();
 
-  // Create a stable object URL from the File
+  // Guard: pages array may be empty during upload/processing
+  const currentPageInfo = Array.isArray(session.pages)
+    ? session.pages.find(p => p.page_number === currentPage)
+    : undefined;
+
+  // Stable object URL from the File — revoked on unmount or file change
   useEffect(() => {
-    if (session.file) {
-      const url = URL.createObjectURL(session.file);
-      setFileUrl(url);
-      return () => URL.revokeObjectURL(url);
-    }
+    if (!session.file) return;
+    const url = URL.createObjectURL(session.file);
+    setFileUrl(url);
+    return () => URL.revokeObjectURL(url);
   }, [session.file]);
 
-  const updateHighlights = useCallback((pageNum: number, hl: Highlight[]) => {
-    const next = { ...session.highlights, [pageNum]: hl };
-    onHighlightsChange(session.id, next);
-  }, [session, onHighlightsChange]);
+  // Clear drawing + picker when page changes
+  useEffect(() => {
+    setDrawing(null);
+    setPickerPos(null);
+  }, [currentPage]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (tool !== 'highlight' || !pageRef.current) return;
-    const rect = pageRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    setDrawing({ startX: x, startY: y, x, y, w: 0, h: 0 });
-  }, [tool]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!drawing || !pageRef.current) return;
-    const rect = pageRef.current.getBoundingClientRect();
-    const cx = (e.clientX - rect.left) / rect.width;
-    const cy = (e.clientY - rect.top) / rect.height;
-    setDrawing({
-      ...drawing,
-      x: Math.min(drawing.startX, cx),
-      y: Math.min(drawing.startY, cy),
-      w: Math.abs(cx - drawing.startX),
-      h: Math.abs(cy - drawing.startY),
-    });
+  // Global mouseUp fallback — fires if user drags outside the page div
+  // Without this, releasing the mouse outside leaves drawing stuck forever
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (drawing) setDrawing(null);
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
   }, [drawing]);
 
+  const updateHighlights = useCallback(
+    (pageNum: number, hl: Highlight[]) => {
+      const next = { ...session.highlights, [pageNum]: hl };
+      onHighlightsChange(session.id, next);
+    },
+    [session, onHighlightsChange],
+  );
+
+  // -----------------------------------------------------------------------
+  // Mouse drawing handlers
+  // -----------------------------------------------------------------------
+  const getRelativePos = useCallback((clientX: number, clientY: number) => {
+    if (!pageRef.current) return null;
+    const rect = pageRef.current.getBoundingClientRect();
+    return {
+      x:     (clientX - rect.left)  / rect.width,
+      y:     (clientY - rect.top)   / rect.height,
+      // Also return absolute pixel offset for picker positioning
+      px:    clientX - rect.left,
+      py:    clientY - rect.top,
+    };
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (tool !== 'highlight') return;
+    const pos = getRelativePos(e.clientX, e.clientY);
+    if (!pos) return;
+    e.preventDefault();
+    setDrawing({ startX: pos.x, startY: pos.y, x: pos.x, y: pos.y, w: 0, h: 0 });
+    setPickerPos(null);
+  }, [tool, getRelativePos]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!drawing) return;
+    const pos = getRelativePos(e.clientX, e.clientY);
+    if (!pos) return;
+    setDrawing({
+      ...drawing,
+      x: Math.min(drawing.startX, pos.x),
+      y: Math.min(drawing.startY, pos.y),
+      w: Math.abs(pos.x - drawing.startX),
+      h: Math.abs(pos.y - drawing.startY),
+    });
+  }, [drawing, getRelativePos]);
+
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    if (!drawing || drawing.w < 0.01 || drawing.h < 0.01) {
+    if (!drawing) return;
+
+    // Ignore tiny accidental clicks (< 1% of page in either dimension)
+    if (drawing.w < 0.01 || drawing.h < 0.005) {
       setDrawing(null);
       return;
     }
-    if (pageRef.current) {
-      const rect = pageRef.current.getBoundingClientRect();
-      setPickerPos({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-        rect: { x: drawing.x, y: drawing.y, w: drawing.w, h: drawing.h },
-      });
-    }
+
+    const pos = getRelativePos(e.clientX, e.clientY);
+    const px  = pos?.px ?? e.clientX;
+    const py  = pos?.py ?? e.clientY;
+
+    // Clamp picker to stay inside the page div
+    setPickerPos({
+      x:    Math.min(px, (pageRef.current?.offsetWidth  ?? 600) - 160),
+      y:    Math.min(py, (pageRef.current?.offsetHeight ?? 800) - 200),
+      rect: { x: drawing.x, y: drawing.y, w: drawing.w, h: drawing.h },
+    });
     setDrawing(null);
-  }, [drawing]);
+  }, [drawing, getRelativePos]);
 
-  const handleLabelSelect = useCallback((field: FieldLabel, customLabel?: string) => {
-    if (!pickerPos) return;
-    const hl: Highlight = {
-      id: `hl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      page: currentPage,
-      field,
-      x: pickerPos.rect.x,
-      y: pickerPos.rect.y,
-      width: pickerPos.rect.w,
-      height: pickerPos.rect.h,
-    };
-    updateHighlights(currentPage, [...pageHighlights, hl]);
-    setPickerPos(null);
-    setShowFirstHint(false);
-  }, [pickerPos, currentPage, pageHighlights, updateHighlights]);
+  // -----------------------------------------------------------------------
+  // Label selection
+  // -----------------------------------------------------------------------
+  const handleLabelSelect = useCallback(
+    (field: FieldLabel, customLabel?: string) => {
+      if (!pickerPos) return;
+      const hl: Highlight = {
+        id:     `hl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        page:   currentPage,
+        // Use customLabel as field value when provided (Custom... option)
+        field:  (customLabel ?? field) as FieldLabel,
+        x:      pickerPos.rect.x,
+        y:      pickerPos.rect.y,
+        width:  pickerPos.rect.w,
+        height: pickerPos.rect.h,
+      };
+      updateHighlights(currentPage, [...pageHighlights, hl]);
+      setPickerPos(null);
+      setShowFirstHint(false);
+    },
+    [pickerPos, currentPage, pageHighlights, updateHighlights],
+  );
 
-  const handleDeleteHighlight = useCallback((id: string) => {
-    updateHighlights(currentPage, pageHighlights.filter(h => h.id !== id));
-  }, [currentPage, pageHighlights, updateHighlights]);
+  // -----------------------------------------------------------------------
+  // Toolbar actions
+  // -----------------------------------------------------------------------
+  const handleDeleteHighlight = useCallback(
+    (id: string) => updateHighlights(currentPage, pageHighlights.filter(h => h.id !== id)),
+    [currentPage, pageHighlights, updateHighlights],
+  );
 
-  const handleEraseAll = useCallback(() => {
-    updateHighlights(currentPage, []);
-  }, [currentPage, updateHighlights]);
+  const handleEraseAll = useCallback(
+    () => updateHighlights(currentPage, []),
+    [currentPage, updateHighlights],
+  );
 
+  const handleToolChange = useCallback(
+    (t: ViewerTool) => {
+      if (t === 'eraser') {
+        // Erase is a one-shot action — clear highlights then revert to cursor
+        handleEraseAll();
+        setTool('cursor');
+      } else {
+        setTool(t);
+      }
+      // Always close picker when switching tools
+      setPickerPos(null);
+    },
+    [handleEraseAll],
+  );
+
+  // Close picker on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && pickerPos) {
-        setPickerPos(null);
-      }
+      if (e.key === 'Escape') setPickerPos(null);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [pickerPos]);
+  }, []);
 
+  // -----------------------------------------------------------------------
+  // Render
+  // -----------------------------------------------------------------------
   if (!fileUrl) {
-    return <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading PDF...</div>;
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+        Loading PDF...
+      </div>
+    );
   }
 
   return (
@@ -133,20 +221,24 @@ export default function PDFViewer({ session, onHighlightsChange, onExtract, onAu
         totalPages={totalPages}
         zoom={zoom}
         tool={tool}
-        isOcr={currentPageInfo?.is_ocr || false}
-        onPageChange={setCurrentPage}
+        isOcr={currentPageInfo?.is_ocr ?? false}
+        onPageChange={(p) => {
+          // Clamp page number to valid range
+          setCurrentPage(Math.max(1, Math.min(p, totalPages)));
+        }}
         onZoomChange={setZoom}
-        onToolChange={(t) => { setTool(t); if (t === 'eraser') handleEraseAll(); }}
+        onToolChange={handleToolChange}
         onExtract={onExtract}
         onAutoExtract={onAutoExtract}
         extracting={extracting}
         hasHighlights={allHighlights.length > 0}
       />
 
-      <div className="flex-1 overflow-auto bg-viewer relative custom-scrollbar">
+      <div className="flex-1 overflow-auto bg-[#525659] relative custom-scrollbar">
+        {/* First-use hint overlay */}
         {showFirstHint && tool === 'highlight' && allHighlights.length === 0 && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-            <div className="bg-foreground/70 text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium backdrop-blur">
+            <div className="bg-black/70 text-white px-4 py-2 rounded-lg text-sm font-medium backdrop-blur-sm">
               Draw boxes over the values you want to extract
             </div>
           </div>
@@ -155,8 +247,12 @@ export default function PDFViewer({ session, onHighlightsChange, onExtract, onAu
         <div className="flex justify-center p-6">
           <div
             ref={pageRef}
-            className="relative shadow-lg"
-            style={{ cursor: tool === 'highlight' ? 'crosshair' : 'default' }}
+            className="relative shadow-2xl select-none"
+            style={{
+              cursor: tool === 'highlight' ? 'crosshair' : 'default',
+              // Prevent text selection while drawing
+              userSelect: tool === 'highlight' ? 'none' : 'auto',
+            }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -164,12 +260,20 @@ export default function PDFViewer({ session, onHighlightsChange, onExtract, onAu
             <Document
               file={fileUrl}
               onLoadSuccess={(pdf) => setNumPages(pdf.numPages)}
-              loading={<div className="w-[600px] h-[800px] bg-card animate-pulse rounded" />}
-              error={<div className="w-[600px] h-[400px] flex items-center justify-center text-destructive text-sm">Failed to load PDF</div>}
+              loading={
+                <div className="w-[600px] h-[800px] bg-white/10 animate-pulse rounded" />
+              }
+              error={
+                <div className="w-[600px] h-[400px] flex items-center justify-center text-red-400 text-sm bg-white rounded">
+                  Failed to load PDF
+                </div>
+              }
             >
               <Page
                 pageNumber={currentPage}
-                scale={zoom * 1.5}
+                // zoom=1 → renders at natural 100% scale
+                // zoom multiplied directly, not by a hidden 1.5x factor
+                scale={zoom}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
               />
@@ -177,7 +281,7 @@ export default function PDFViewer({ session, onHighlightsChange, onExtract, onAu
 
             <HighlightOverlay
               highlights={pageHighlights}
-              drawing={drawing}
+              drawing={drawing ? { x: drawing.x, y: drawing.y, w: drawing.w, h: drawing.h } : null}
               onDelete={handleDeleteHighlight}
               tool={tool}
             />
