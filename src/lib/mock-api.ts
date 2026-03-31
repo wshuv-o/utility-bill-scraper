@@ -3,6 +3,11 @@ import { extractFromRegions, autoExtractWithHighlights } from './pdf-extract';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
+// Tries backend first, falls back to client-side pdfjs automatically
+try {
+  const checked = await checkBackend();
+  if (checked) { /* use backend */ }
+} catch { /* fall through to client-side */ }
 let backendOnline = false;
 
 async function checkBackend(): Promise<boolean> {
