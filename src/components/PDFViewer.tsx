@@ -87,13 +87,20 @@ export default function PDFViewer({
   // -----------------------------------------------------------------------
   const getRelativePos = useCallback((clientX: number, clientY: number) => {
     if (!pageRef.current) return null;
-    const rect = pageRef.current.getBoundingClientRect();
+
+    // Use the actual PDF canvas bounding rect, not the wrapper div.
+    // react-pdf renders a <canvas> inside the wrapper — if it has any
+    // margin/padding the wrapper rect would cause an offset shift.
+    const canvas = pageRef.current.querySelector('canvas');
+    const target = canvas ?? pageRef.current;
+    const rect   = target.getBoundingClientRect();
+
     return {
-      x:     (clientX - rect.left)  / rect.width,
-      y:     (clientY - rect.top)   / rect.height,
-      // Also return absolute pixel offset for picker positioning
-      px:    clientX - rect.left,
-      py:    clientY - rect.top,
+      x:  (clientX - rect.left) / rect.width,
+      y:  (clientY - rect.top)  / rect.height,
+      // Pixel offset relative to the canvas (for picker positioning)
+      px: clientX - rect.left,
+      py: clientY - rect.top,
     };
   }, []);
 

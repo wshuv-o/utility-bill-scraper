@@ -376,6 +376,39 @@ export async function extractFromRegions(
 }
 
 // ---------------------------------------------------------------------------
+// findTextPositionInPdf — find the exact bounding box of a text value
+// on a specific page, exported for use in api.ts after backend auto-extract.
+// Returns null for scanned pages (pdfjs has no text layer).
+// ---------------------------------------------------------------------------
+export async function findTextPositionInPdf(
+  file: File,
+  pageNumber: number,
+  searchText: string,
+): Promise<{ x: number; y: number; width: number; height: number } | null> {
+  if (!searchText || !searchText.trim()) return null;
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    if (pageNumber < 1 || pageNumber > pdf.numPages) return null;
+
+    const page    = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const vp      = page.getViewport({ scale: 1 });
+
+    if (isScannedPage(content.items as any[])) return null;
+
+    return findTextPosition(
+      content.items as any[],
+      searchText,
+      vp.width,
+      vp.height,
+    );
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Legacy auto-extract without highlights (kept for backward compat)
 // ---------------------------------------------------------------------------
 export function autoExtractFields(

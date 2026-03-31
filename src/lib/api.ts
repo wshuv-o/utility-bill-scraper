@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { PageInfo, Highlight, ExtractedRow } from '@/types/utilscraper';
-import { extractFromRegions, autoExtractWithHighlights } from './pdf-extract';
+import { extractFromRegions, autoExtractWithHighlights, findTextPositionInPdf } from './pdf-extract';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -297,22 +297,42 @@ export async function autoExtract(
           }
         }
 
-        // Convert highlights: Record<string, Highlight[]> → Record<number, Highlight[]>
+        // Build highlights using EXACT text positions from pdfjs (native pages)
+        // or fall back to approximate backend coords (OCR pages where pdfjs has no text)
         const highlights: Record<number, Highlight[]> = {};
-        for (const [pageStr, pageHls] of Object.entries(data.highlights || {})) {
-          const pageNum = parseInt(pageStr, 10);
-          highlights[pageNum] = (pageHls as any[]).map(h => ({
-            id:             `auto-${h.page}-${h.field}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-            page:           h.page,
-            field:          h.field,
-            x:              h.x,
-            y:              h.y,
-            width:          h.width,
-            height:         h.height,
-            extractedValue: rows.find(r => r.page === h.page && r.field === h.field)?.value ?? null,
-            confidence:     'high' as const,
-            wasOcr:         false,
-          }));
+        for (const row of rows) {
+          const exactRect = !row.wasOcr && row.value
+            ? await findTextPositionInPdf(file, row.page, row.value)
+            : null;
+
+          // Use exact position if found, otherwise fall back to backend approximate coords
+          const backendHl = (data.highlights?.[String(row.page)] as any[] || [])
+            .find((h: any) => {
+              const hField = h.field === 'billing_date' ? 'billing_date' : h.field;
+              const rField = row.field === 'billing_date_start' ? 'billing_date' : row.field;
+              return hField === rField;
+            });
+
+          const rect = exactRect ?? (backendHl
+            ? { x: backendHl.x, y: backendHl.y, width: backendHl.width, height: backendHl.height }
+            : null);
+
+          if (!rect) continue;
+
+          const pageNum = row.page;
+          if (!highlights[pageNum]) highlights[pageNum] = [];
+          highlights[pageNum].push({
+            id:             `auto-${row.page}-${row.field}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            page:           row.page,
+            field:          row.field,
+            x:              rect.x,
+            y:              rect.y,
+            width:          rect.width,
+            height:         rect.height,
+            extractedValue: row.value,
+            confidence:     row.confidence,
+            wasOcr:         row.wasOcr,
+          });
         }
 
         return { rows, highlights };
