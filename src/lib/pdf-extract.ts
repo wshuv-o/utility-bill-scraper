@@ -1,9 +1,11 @@
+/* eslint-disable no-useless-escape */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { pdfjs } from 'react-pdf';
 import type { ExtractedRow, FieldLabel, Highlight } from '@/types/utilscraper';
 
-/**
- * Extract all text from a PDF file using pdfjs, page by page.
- */
+// ---------------------------------------------------------------------------
+// Extract all text from a PDF file, page by page
+// ---------------------------------------------------------------------------
 export async function extractTextFromPdf(file: File): Promise<Map<number, string>> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
@@ -23,9 +25,9 @@ export async function extractTextFromPdf(file: File): Promise<Map<number, string
   return pageTexts;
 }
 
-/**
- * Provider-specific field extraction patterns.
- */
+// ---------------------------------------------------------------------------
+// Provider field extraction patterns (client-side fallback)
+// ---------------------------------------------------------------------------
 interface ProviderPatterns {
   property_name: RegExp[];
   account_number: RegExp[];
@@ -66,12 +68,10 @@ const PROVIDER_PATTERNS: Record<string, ProviderPatterns> = {
   },
 };
 
-// Clone National Grid patterns as base for other providers
 for (const p of ['Con Edison', 'PSEG', 'National Fuel', 'KeySpan']) {
   PROVIDER_PATTERNS[p] = { ...PROVIDER_PATTERNS['National Grid Gas'] };
 }
 
-// Add Con Edison specific patterns
 PROVIDER_PATTERNS['Con Edison'] = {
   ...PROVIDER_PATTERNS['National Grid Gas'],
   total_gas_bill: [
@@ -81,10 +81,18 @@ PROVIDER_PATTERNS['Con Edison'] = {
   ],
 };
 
-/**
- * Auto-extract fields from all pages of a PDF.
- * Returns extracted rows AND highlight positions for visual feedback.
- */
+// ---------------------------------------------------------------------------
+// Page type detection
+// Text items < 10 means the page is scanned — pdfjs cannot read it
+// ---------------------------------------------------------------------------
+function isScannedPage(items: any[]): boolean {
+  const textItems = items.filter((i: any) => i.str && i.str.trim().length > 0);
+  return textItems.length < 10;
+}
+
+// ---------------------------------------------------------------------------
+// Auto-extract with highlight positions
+// ---------------------------------------------------------------------------
 export async function autoExtractWithHighlights(
   file: File,
   provider: string,
@@ -106,7 +114,9 @@ export async function autoExtractWithHighlights(
     const pageWidth = viewport.width;
     const pageHeight = viewport.height;
 
-    // Build full text for regex matching
+    // Skip scanned pages — backend OCR needed for those
+    if (isScannedPage(content.items as any[])) continue;
+
     const fullText = content.items
       .map((item: any) => item.str)
       .join(' ')
@@ -115,9 +125,12 @@ export async function autoExtractWithHighlights(
 
     if (!fullText || fullText.length < 10) continue;
 
-    const pageResults: Record<string, { value: string | null; confidence: 'high' | 'medium' | 'low'; matchedText?: string }> = {};
+    const pageResults: Record<string, {
+      value: string | null;
+      confidence: 'high' | 'medium' | 'low';
+      matchedText?: string;
+    }> = {};
 
-    // Extract each field using patterns
     for (const [field, fieldPatterns] of Object.entries(patterns) as [FieldLabel, RegExp[]][]) {
       let found: string | null = null;
       let confidence: 'high' | 'medium' | 'low' = 'low';
@@ -126,77 +139,73 @@ export async function autoExtractWithHighlights(
         const match = fullText.match(fieldPatterns[pi]);
         if (match && match[1]) {
           found = match[1].trim();
-          confidence = pi === 0 ? 'high' : pi === 1 ? 'high' : 'medium';
+          confidence = pi <= 1 ? 'high' : 'medium';
           break;
         }
       }
-
       pageResults[field] = { value: found, confidence, matchedText: found || undefined };
     }
 
-    // Carry-forward logic
-    if (pageResults.property_name.value) {
-      lastPropertyName = pageResults.property_name.value;
-    } else if (lastPropertyName) {
-      pageResults.property_name = { value: lastPropertyName, confidence: 'medium' };
-    }
+    // Carry-forward
+    if (pageResults.property_name.value) lastPropertyName = pageResults.property_name.value;
+    else if (lastPropertyName) pageResults.property_name = { value: lastPropertyName, confidence: 'medium' };
 
-    if (pageResults.account_number.value) {
-      lastAccountNumber = pageResults.account_number.value;
-    } else if (lastAccountNumber) {
-      pageResults.account_number = { value: lastAccountNumber, confidence: 'medium' };
-    }
+    if (pageResults.account_number.value) lastAccountNumber = pageResults.account_number.value;
+    else if (lastAccountNumber) pageResults.account_number = { value: lastAccountNumber, confidence: 'medium' };
 
-    if (pageResults.address.value) {
-      lastAddress = pageResults.address.value;
-    } else if (lastAddress) {
-      pageResults.address = { value: lastAddress, confidence: 'medium' };
-    }
+    if (pageResults.address.value) lastAddress = pageResults.address.value;
+    else if (lastAddress) pageResults.address = { value: lastAddress, confidence: 'medium' };
 
-    // For each extracted field, try to find it spatially in the text items
     const pageHls: Highlight[] = [];
     for (const [field, result] of Object.entries(pageResults)) {
-      if (result.value) {
-        rows.push({
-          page: pageNum,
-          field,
-          value: result.value,
-          confidence: result.confidence,
-          wasOcr: false,
-        });
+      if (!result.value) continue;
 
-        // Try to find spatial position of matched text
-        if (result.matchedText) {
-          const hlRect = findTextPosition(content.items as any[], result.matchedText, pageWidth, pageHeight);
-          if (hlRect) {
-            pageHls.push({
-              id: `auto-${pageNum}-${field}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-              page: pageNum,
-              field: field as FieldLabel,
-              x: hlRect.x,
-              y: hlRect.y,
-              width: hlRect.width,
-              height: hlRect.height,
-              extractedValue: result.value,
-              confidence: result.confidence,
-              wasOcr: false,
-            });
-          }
+      rows.push({
+        page: pageNum,
+        field,
+        value: result.value,
+        confidence: result.confidence,
+        wasOcr: false,
+      });
+
+      if (result.matchedText) {
+        const hlRect = findTextPosition(
+          content.items as any[],
+          result.matchedText,
+          pageWidth,
+          pageHeight,
+        );
+        if (hlRect) {
+          pageHls.push({
+            id: `auto-${pageNum}-${field}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            page: pageNum,
+            field: field as FieldLabel,
+            x: hlRect.x,
+            y: hlRect.y,
+            width: hlRect.width,
+            height: hlRect.height,
+            extractedValue: result.value,
+            confidence: result.confidence,
+            wasOcr: false,
+          });
         }
       }
     }
 
-    if (pageHls.length > 0) {
-      highlights[pageNum] = pageHls;
-    }
+    if (pageHls.length > 0) highlights[pageNum] = pageHls;
   }
 
   return { rows, highlights };
 }
 
-/**
- * Find the normalized bounding box of matched text within PDF text items.
- */
+// ---------------------------------------------------------------------------
+// findTextPosition — fixed to return the TIGHTEST matching bounding box.
+//
+// Bug was: multiple occurrences of the same word (e.g. "226.77" appears 6x)
+// caused a giant bounding box spanning the whole page.
+// Fix: score each item by how many search words it contains, take only the
+// best-scoring cluster of items.
+// ---------------------------------------------------------------------------
 function findTextPosition(
   items: any[],
   searchText: string,
@@ -204,51 +213,55 @@ function findTextPosition(
   pageHeight: number,
 ): { x: number; y: number; width: number; height: number } | null {
   const searchLower = searchText.toLowerCase().trim();
-  const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
+  const searchWords = searchLower.split(/\s+/).filter(w => w.length > 1);
   if (searchWords.length === 0) return null;
 
-  // Try to find items containing the search text words
-  const matchedItems: any[] = [];
-  
+  // Score every text item
+  const scored: { item: any; score: number }[] = [];
   for (const item of items) {
     if (!item.str || !item.transform) continue;
-    const itemLower = item.str.toLowerCase().trim();
-    if (!itemLower) continue;
-    
-    // Check if this item contains any of the search words
+    const itemLower = item.str.toLowerCase();
+    let score = 0;
     for (const word of searchWords) {
-      if (itemLower.includes(word) || word.includes(itemLower)) {
-        matchedItems.push(item);
-        break;
-      }
+      if (itemLower.includes(word)) score++;
     }
+    if (score > 0) scored.push({ item, score });
   }
 
-  if (matchedItems.length === 0) return null;
+  if (scored.length === 0) return null;
 
-  // Compute bounding box from matched items
+  // Take only items with the highest score (best matches)
+  const maxScore = Math.max(...scored.map(s => s.score));
+  const best = scored.filter(s => s.score === maxScore).map(s => s.item);
+
+  // If multiple items match (e.g. "226.77" appears 6x), take the first one
+  // (bills are read top-to-bottom, first match is usually the right one)
+  const selected = best.length > 2 ? [best[0]] : best;
+
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-  for (const item of matchedItems) {
+  for (const item of selected) {
     const x = item.transform[4];
-    const y = pageHeight - item.transform[5]; // Convert from bottom-up to top-down
-    const w = item.width || item.str.length * 6;
-    const h = item.height || 12;
+    // transform[5] is distance from PAGE BOTTOM to text top edge
+    // So top-down Y (from page top) = pageHeight - transform[5]
+    const itemTop = pageHeight - item.transform[5];
+    const itemH = item.height || Math.abs(item.transform[3]) || 12;
+    const itemBottom = itemTop + itemH;
+    const itemRight = x + (item.width || item.str.length * 6);
 
     minX = Math.min(minX, x);
-    minY = Math.min(minY, y - h); // text baseline adjustment
-    maxX = Math.max(maxX, x + w);
-    maxY = Math.max(maxY, y);
+    minY = Math.min(minY, itemTop);
+    maxX = Math.max(maxX, itemRight);
+    maxY = Math.max(maxY, itemBottom);
   }
 
-  // Add padding
-  const pad = 4;
+  // Add small padding
+  const pad = 3;
   minX = Math.max(0, minX - pad);
   minY = Math.max(0, minY - pad);
   maxX = Math.min(pageWidth, maxX + pad);
   maxY = Math.min(pageHeight, maxY + pad);
 
-  // Normalize to 0-1
   return {
     x: minX / pageWidth,
     y: minY / pageHeight,
@@ -257,10 +270,24 @@ function findTextPosition(
   };
 }
 
-/**
- * Extract text from specific highlighted regions on a page.
- * Uses spatial matching against pdfjs text items.
- */
+// ---------------------------------------------------------------------------
+// extractFromRegions — MANUAL HIGHLIGHT MODE
+//
+// Fixed bug: Y coordinate was off by one itemHeight.
+//
+// Root cause:
+//   pdfjs transform[5] = distance from PAGE BOTTOM to the TOP of the text.
+//   So itemTop (top-down) = pageHeight - transform[5]   ← TOP of text
+//      itemBottom         = itemTop + itemHeight         ← BOTTOM of text
+//
+// The old code had:
+//   itemBaseline = pageHeight - transform[5]   (= itemTop, correct)
+//   itemTop      = itemBaseline - itemHeight   (WRONG — this went ABOVE the text)
+//   itemBottom   = itemBaseline               (WRONG — this was actually itemTop)
+//
+// Result: every text item was tested against a window shifted UP by itemHeight,
+// so highlights drawn exactly over text never matched.
+// ---------------------------------------------------------------------------
 export async function extractFromRegions(
   file: File,
   highlights: { page: number; field: string; x: number; y: number; width: number; height: number }[],
@@ -269,7 +296,7 @@ export async function extractFromRegions(
   const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
   const results: ExtractedRow[] = [];
 
-  // Group highlights by page
+  // Group highlights by page so we open each page only once
   const byPage = new Map<number, typeof highlights>();
   for (const h of highlights) {
     if (!byPage.has(h.page)) byPage.set(h.page, []);
@@ -283,55 +310,64 @@ export async function extractFromRegions(
     const pageWidth = viewport.width;
     const pageHeight = viewport.height;
 
-    // Log text items for debugging
-    console.log(`Page ${pageNum}: ${content.items.length} text items, viewport: ${pageWidth}x${pageHeight}`);
+    const items = content.items as any[];
+    const scanned = isScannedPage(items);
 
     for (const hl of pageHighlights) {
-      // Convert highlight coords (0-1 normalized) to PDF coords
-      const hlLeft = hl.x * pageWidth;
-      const hlRight = (hl.x + hl.width) * pageWidth;
-      const hlTop = hl.y * pageHeight;
-      const hlBottom = (hl.y + hl.height) * pageHeight;
+      // If the page is scanned, pdfjs has no text — signal that OCR is needed
+      if (scanned) {
+        results.push({
+          page: hl.page,
+          field: hl.field,
+          value: null,
+          confidence: 'low',
+          wasOcr: true,    // ← tells the caller "retry this with the backend OCR"
+        });
+        continue;
+      }
 
-      console.log(`Highlight "${hl.field}": normalized(${hl.x.toFixed(3)}, ${hl.y.toFixed(3)}, ${hl.width.toFixed(3)}, ${hl.height.toFixed(3)}) => PDF(${hlLeft.toFixed(1)}, ${hlTop.toFixed(1)} - ${hlRight.toFixed(1)}, ${hlBottom.toFixed(1)})`);
+      // Convert normalised highlight coords → PDF point coords
+      const hlLeft   = hl.x * pageWidth;
+      const hlRight  = (hl.x + hl.width) * pageWidth;
+      const hlTop    = hl.y * pageHeight;
+      const hlBottom = (hl.y + hl.height) * pageHeight;
 
       const matchedTexts: string[] = [];
 
-      for (const item of content.items as any[]) {
+      for (const item of items) {
         if (!item.str || !item.transform) continue;
+        const str = item.str;
+        if (!str.trim()) continue;
 
-        // PDF text items: transform[4] = x, transform[5] = y (from bottom-left)
-        const itemX = item.transform[4];
-        // Convert Y from bottom-up to top-down coordinate system
-        const itemBaseline = pageHeight - item.transform[5];
-        const itemHeight = item.height || Math.abs(item.transform[3]) || 12;
-        const itemWidth = item.width || item.str.length * 6;
-        
-        // The baseline is at the bottom of the text, so top = baseline - height
-        const itemTop = itemBaseline - itemHeight;
-        const itemBottom = itemBaseline;
-        const itemRight = itemX + itemWidth;
+        const itemX      = item.transform[4];
+        const itemH      = item.height || Math.abs(item.transform[3]) || 12;
+        const itemW      = item.width  || str.length * 6;
 
-        // Check if the text item overlaps with the highlight region
-        // Use generous overlap - any intersection counts
-        const overlapX = hlRight > itemX && hlLeft < itemRight;
-        const overlapY = hlBottom > itemTop && hlTop < itemBottom;
+        // ---- FIXED Y coordinate calculation ----
+        // transform[5] = distance from page bottom to the TOP of the text
+        // itemTop    = pageHeight - transform[5]  (top-down from page top)
+        // itemBottom = itemTop + itemH
+        const itemTop    = pageHeight - item.transform[5];
+        const itemBottom = itemTop + itemH;
+        const itemRight  = itemX + itemW;
+
+        // Overlap check — any intersection qualifies
+        const overlapX = hlRight  > itemX    && hlLeft  < itemRight;
+        const overlapY = hlBottom > itemTop  && hlTop   < itemBottom;
 
         if (overlapX && overlapY) {
-          matchedTexts.push(item.str);
+          matchedTexts.push(str);
         }
       }
 
       const value = matchedTexts.join(' ').replace(/\s+/g, ' ').trim() || null;
-      
-      console.log(`  => Matched ${matchedTexts.length} items: "${value}"`);
 
       results.push({
-        page: hl.page,
-        field: hl.field,
+        page:       hl.page,
+        field:      hl.field,
         value,
         confidence: value && value.length > 2 ? 'high' : value ? 'medium' : 'low',
-        wasOcr: false,
+        wasOcr:     false,
       });
     }
   }
@@ -339,9 +375,9 @@ export async function extractFromRegions(
   return results;
 }
 
-/**
- * Legacy auto-extract (without highlights). Kept for backward compat.
- */
+// ---------------------------------------------------------------------------
+// Legacy auto-extract without highlights (kept for backward compat)
+// ---------------------------------------------------------------------------
 export function autoExtractFields(
   pageTexts: Map<number, string>,
   provider: string,
@@ -367,31 +403,21 @@ export function autoExtractFields(
         const match = text.match(fieldPatterns[pi]);
         if (match && match[1]) {
           found = match[1].trim();
-          confidence = pi === 0 ? 'high' : pi === 1 ? 'high' : 'medium';
+          confidence = pi <= 1 ? 'high' : 'medium';
           break;
         }
       }
-
       pageResults[field] = { value: found, confidence };
     }
 
-    if (pageResults.property_name.value) {
-      lastPropertyName = pageResults.property_name.value;
-    } else if (lastPropertyName) {
-      pageResults.property_name = { value: lastPropertyName, confidence: 'medium' };
-    }
+    if (pageResults.property_name.value) lastPropertyName = pageResults.property_name.value;
+    else if (lastPropertyName) pageResults.property_name = { value: lastPropertyName, confidence: 'medium' };
 
-    if (pageResults.account_number.value) {
-      lastAccountNumber = pageResults.account_number.value;
-    } else if (lastAccountNumber) {
-      pageResults.account_number = { value: lastAccountNumber, confidence: 'medium' };
-    }
+    if (pageResults.account_number.value) lastAccountNumber = pageResults.account_number.value;
+    else if (lastAccountNumber) pageResults.account_number = { value: lastAccountNumber, confidence: 'medium' };
 
-    if (pageResults.address.value) {
-      lastAddress = pageResults.address.value;
-    } else if (lastAddress) {
-      pageResults.address = { value: lastAddress, confidence: 'medium' };
-    }
+    if (pageResults.address.value) lastAddress = pageResults.address.value;
+    else if (lastAddress) pageResults.address = { value: lastAddress, confidence: 'medium' };
 
     for (const [field, result] of Object.entries(pageResults)) {
       if (result.value) {
