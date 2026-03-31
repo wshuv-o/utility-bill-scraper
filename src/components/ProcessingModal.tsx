@@ -1,4 +1,4 @@
-import { Check, Loader2, Circle } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface ProcessingModalProps {
@@ -17,32 +17,44 @@ const STEPS = [
 export default function ProcessingModal({ open, step, detail }: ProcessingModalProps) {
   if (!open) return null;
 
-  const progress = Math.min(((step + 1) / 4) * 100, 100);
+  const progress = Math.min(((step + 1) / (STEPS.length)) * 100, 100);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-card rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
-        <h3 className="text-base font-semibold text-foreground mb-4">Processing your PDF...</h3>
+        <h3 className="text-base font-semibold text-foreground mb-4">
+          Processing your PDF...
+        </h3>
+
         <div className="space-y-2.5 mb-5">
           {STEPS.map((label, i) => {
-            const isDone = step > i;
+            const isDone    = step > i;
             const isCurrent = step === i;
             return (
               <div key={i} className="flex items-center gap-2.5 text-sm">
                 {isDone ? (
-                  <Check className="w-4 h-4 text-success" />
+                  <Check className="w-4 h-4 text-green-500 shrink-0" />
                 ) : isCurrent ? (
-                  <Loader2 className="w-4 h-4 text-accent animate-spin" />
+                  <Loader2 className="w-4 h-4 text-blue-500 animate-spin shrink-0" />
                 ) : (
-                  <Circle className="w-4 h-4 text-muted-foreground/40" />
+                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
                 )}
-                <span className={isDone ? 'text-foreground' : isCurrent ? 'text-accent font-medium' : 'text-muted-foreground'}>
+                <span
+                  className={
+                    isDone
+                      ? 'text-foreground'
+                      : isCurrent
+                        ? 'text-blue-500 font-medium'
+                        : 'text-muted-foreground'
+                  }
+                >
                   {isCurrent && detail ? detail : label}
                 </span>
               </div>
             );
           })}
         </div>
+
         <Progress value={progress} className="h-2" />
       </div>
     </div>
