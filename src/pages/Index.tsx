@@ -128,11 +128,16 @@ export default function Index() {
         results = await extractRegions(expandedSession.id, needsExtraction, expandedSession.file);
       }
 
+      // Match results back to highlights by position in the needsExtraction array
+      // (not by page+field which would collapse duplicate fields on same page)
       const newHighlights = { ...expandedSession.highlights };
+      let resultIdx = 0;
       for (const [pageNum, pageHls] of Object.entries(newHighlights)) {
         newHighlights[Number(pageNum)] = pageHls.map(h => {
           if (h.isAutoExtracted && h.extractedValue != null) return h;
-          const result = results.find(r => r.page === h.page && r.field === h.field);
+          // Skip highlights that weren't sent for extraction
+          if (h.extractedValue !== undefined && h.extractedValue !== null) return h;
+          const result = results[resultIdx++];
           return result ? { ...h, extractedValue: result.value, confidence: result.confidence, wasOcr: result.wasOcr } : h;
         });
       }
