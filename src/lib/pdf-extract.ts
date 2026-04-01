@@ -340,13 +340,18 @@ export async function extractFromRegions(
         continue;
       }
 
-      // Convert normalised highlight coords → PDF point coords
-      const hlLeft   = hl.x * pageWidth;
-      const hlRight  = (hl.x + hl.width) * pageWidth;
-      const hlTop    = hl.y * pageHeight;
-      const hlBottom = (hl.y + hl.height) * pageHeight;
+      // Convert normalised highlight coords → PDF point coords.
+      // Expand slightly (0.5% each side) so text at the drawn box boundary
+      // isn't missed — pdfjs only matches items whose position falls inside.
+      const padX = pageWidth  * 0.005;
+      const padY = pageHeight * 0.004;
+      const hlLeft   = Math.max(0,          hl.x * pageWidth             - padX);
+      const hlRight  = Math.min(pageWidth,  (hl.x + hl.width) * pageWidth  + padX);
+      const hlTop    = Math.max(0,          hl.y * pageHeight            - padY);
+      const hlBottom = Math.min(pageHeight, (hl.y + hl.height) * pageHeight + padY);
 
-      const matchedTexts: string[] = [];
+      // Collect matched items with their positions
+      const matchedItems: { x: number; y: number; str: string }[] = [];
 
       for (const item of items) {
         if (!item.str || !item.transform) continue;
@@ -357,24 +362,27 @@ export async function extractFromRegions(
         const itemH      = item.height || Math.abs(item.transform[3]) || 12;
         const itemW      = item.width  || str.length * 6;
 
-        // ---- FIXED Y coordinate calculation ----
-        // transform[5] = distance from page bottom to the TOP of the text
-        // itemTop    = pageHeight - transform[5]  (top-down from page top)
-        // itemBottom = itemTop + itemH
         const itemTop    = pageHeight - item.transform[5];
         const itemBottom = itemTop + itemH;
         const itemRight  = itemX + itemW;
 
-        // Overlap check — any intersection qualifies
         const overlapX = hlRight  > itemX    && hlLeft  < itemRight;
         const overlapY = hlBottom > itemTop  && hlTop   < itemBottom;
 
         if (overlapX && overlapY) {
-          matchedTexts.push(str);
+          matchedItems.push({ x: itemX, y: itemTop, str });
         }
       }
 
-      const value = matchedTexts.join(' ').replace(/\s+/g, ' ').trim() || null;
+      // Sort by reading order: top-to-bottom, then left-to-right within same line
+      // Items within 6px vertical distance are considered the same line
+      matchedItems.sort((a, b) => {
+        const lineDiff = a.y - b.y;
+        if (Math.abs(lineDiff) > 6) return lineDiff;
+        return a.x - b.x;
+      });
+
+      const value = matchedItems.map(i => i.str).join(' ').replace(/\s+/g, ' ').trim() || null;
 
       results.push({
         page:       hl.page,
@@ -400,9 +408,15 @@ export async function findTextPositionInPdf(
   searchText: string,
 ): Promise<{ x: number; y: number; width: number; height: number } | null> {
   if (!searchText || !searchText.trim()) return null;
+  // Ensure worker is set before every call — not just module load time
+  pdfjs.GlobalWorkerOptions.workerSrc =
+    `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+
     if (pageNumber < 1 || pageNumber > pdf.numPages) return null;
 
     const page    = await pdf.getPage(pageNumber);
@@ -414,17 +428,23 @@ export async function findTextPositionInPdf(
     // pdfjs often splits "$226.77" into two items: "$" and "226.77"
     // Strip currency symbols and search for just the numeric part
     const cleanedSearch = searchText
-      .replace(/^\$\s*/, '')   // remove leading $
+      .replace(/\$\s*/g, '')   // remove $ signs
       .replace(/,/g, '')        // remove thousand separators
       .trim();
 
     // Try cleaned version first, fall back to original
-    const result = findTextPosition(content.items as any[], cleanedSearch, vp.width, vp.height)
-      ?? findTextPosition(content.items as any[], searchText, vp.width, vp.height);
+    const result =
+      findTextPosition(content.items as any[], cleanedSearch, vp.width, vp.height) ??
+      findTextPosition(content.items as any[], searchText,    vp.width, vp.height);
+
+    console.debug(
+      `[findTextPositionInPdf] page=${pageNumber} search="${cleanedSearch}" →`,
+      result ? `x=${result.x.toFixed(3)} y=${result.y.toFixed(3)}` : 'null',
+    );
 
     return result;
   } catch (err) {
-    console.warn('[findTextPositionInPdf] failed:', err);
+    console.warn('[findTextPositionInPdf] error:', err);
     return null;
   }
 }

@@ -251,7 +251,7 @@ export default function PDFViewer({
         hasHighlights={allHighlights.length > 0}
       />
 
-      <div className="flex-1 overflow-auto bg-[#525659] relative custom-scrollbar">
+      <div className="flex-1 overflow-auto bg-[#525659] relative custom-scrollbar pr-6">
         {/* First-use hint overlay */}
         {showFirstHint && tool === 'highlight' && allHighlights.length === 0 && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
@@ -261,7 +261,7 @@ export default function PDFViewer({
           </div>
         )}
 
-        <div className="flex justify-center p-6">
+        <div className="flex justify-center p-6 pr-12">
           {/* pageRef shrink-wraps the canvas via inline-block so HighlightOverlay
               (absolute inset-0) aligns pixel-perfectly with the rendered PDF */}
           <div

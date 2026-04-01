@@ -1,6 +1,5 @@
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, MousePointer2, Square, Eraser, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ViewerTool } from '@/types/utilscraper';
@@ -19,7 +18,6 @@ interface ViewerToolbarProps {
   hasHighlights: boolean;
 }
 
-// zoom=1.0 → 100% scale (matches PDFViewer scale={zoom})
 const ZOOM_OPTIONS = [
   { label: '50%',      value: 0.5  },
   { label: '75%',      value: 0.75 },
@@ -56,12 +54,12 @@ export default function ViewerToolbar({
   );
 
   return (
-    <div className="h-10 bg-white border-b border-gray-200 flex items-center px-3 gap-2 shrink-0">
+    <div className="h-10 bg-white border-b border-gray-200 flex items-center px-3 gap-2 shrink-0 overflow-x-auto">
 
       {/* Page navigation */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 shrink-0">
         <button
-          className="p-1 text-white/60 hover:text-white disabled:opacity-30 transition-colors"
+          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 transition-colors"
           disabled={currentPage <= 1}
           onClick={() => onPageChange(currentPage - 1)}
           aria-label="Previous page"
@@ -69,8 +67,11 @@ export default function ViewerToolbar({
           <ChevronLeft className="w-4 h-4" />
         </button>
 
-        <Input
-          className="w-10 h-7 text-center text-xs bg-gray-100 border-none text-gray-700 p-0"
+        <input
+          type="number"
+          min={1}
+          max={totalPages}
+          className="w-10 h-7 text-center text-xs bg-gray-100 rounded border-none text-gray-700 outline-none focus:ring-1 focus:ring-green-400"
           value={currentPage}
           onChange={e => {
             const n = parseInt(e.target.value);
@@ -79,10 +80,10 @@ export default function ViewerToolbar({
           aria-label="Current page"
         />
 
-        <span className="text-xs text-white/50">/ {totalPages}</span>
+        <span className="text-xs text-gray-400 px-1">/ {totalPages}</span>
 
         <button
-          className="p-1 text-white/60 hover:text-white disabled:opacity-30 transition-colors"
+          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 transition-colors"
           disabled={currentPage >= totalPages}
           onClick={() => onPageChange(currentPage + 1)}
           aria-label="Next page"
@@ -91,10 +92,13 @@ export default function ViewerToolbar({
         </button>
       </div>
 
+      {/* Separator */}
+      <div className="w-px h-5 bg-gray-200 shrink-0" />
+
       {/* Zoom controls */}
-      <div className="flex items-center gap-1 ml-3">
+      <div className="flex items-center gap-0.5 shrink-0">
         <button
-          className="p-1 text-gray-400 hover:text-gray-700 transition-colors"
+          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
           onClick={() => onZoomChange(Math.max(0.3, parseFloat((zoom - 0.15).toFixed(2))))}
           aria-label="Zoom out"
         >
@@ -102,21 +106,18 @@ export default function ViewerToolbar({
         </button>
 
         <Select value={String(zoom)} onValueChange={v => onZoomChange(Number(v))}>
-          <SelectTrigger className="w-20 h-7 text-xs bg-gray-100 border-none text-gray-700">
-            {/* Display current zoom as percentage */}
+          <SelectTrigger className="w-20 h-7 text-xs bg-gray-100 border-none text-gray-700 focus:ring-0">
             <SelectValue>{Math.round(zoom * 100)}%</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {ZOOM_OPTIONS.map(o => (
-              <SelectItem key={o.label} value={String(o.value)}>
-                {o.label}
-              </SelectItem>
+              <SelectItem key={o.label} value={String(o.value)}>{o.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <button
-          className="p-1 text-gray-400 hover:text-gray-700 transition-colors"
+          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
           onClick={() => onZoomChange(Math.min(2.5, parseFloat((zoom + 0.15).toFixed(2))))}
           aria-label="Zoom in"
         >
@@ -125,38 +126,40 @@ export default function ViewerToolbar({
       </div>
 
       {/* Separator */}
-      <div className="w-px h-5 bg-gray-200 mx-2" />
+      <div className="w-px h-5 bg-gray-200 shrink-0" />
 
       {/* Drawing tools */}
-      {toolBtn('cursor',    <MousePointer2 className="w-4 h-4" />, 'Cursor')}
-      {toolBtn('highlight', <Square        className="w-4 h-4" />, 'Highlight tool — draw boxes')}
-      {toolBtn('eraser',    <Eraser        className="w-4 h-4" />, 'Erase all highlights on this page')}
+      <div className="flex items-center gap-0.5 shrink-0">
+        {toolBtn('cursor',    <MousePointer2 className="w-4 h-4" />, 'Cursor')}
+        {toolBtn('highlight', <Square        className="w-4 h-4" />, 'Highlight — draw boxes')}
+        {toolBtn('eraser',    <Eraser        className="w-4 h-4" />, 'Erase all on this page')}
+      </div>
 
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* OCR status badge */}
+      {/* OCR badge */}
       {isOcr ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium cursor-default">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium cursor-default shrink-0">
               🔍 OCR Processed
             </span>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-            This page was a scanned image. Text was extracted automatically using OCR.
+          <TooltipContent side="bottom" className="max-w-[200px] text-xs">
+            Scanned page — text extracted via OCR
           </TooltipContent>
         </Tooltip>
       ) : (
-        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 cursor-default">
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 cursor-default shrink-0">
           📄 Native Text
         </span>
       )}
 
-      {/* Extract button */}
+      {/* Extract */}
       <Button
         size="sm"
-        className="bg-green-600 text-white hover:bg-green-700 font-semibold text-xs h-7 px-4"
+        className="bg-green-600 text-white hover:bg-green-700 font-semibold text-xs h-7 px-4 shrink-0"
         disabled={!hasHighlights || extracting}
         onClick={onExtract}
       >
