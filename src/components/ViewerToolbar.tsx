@@ -15,7 +15,6 @@ interface ViewerToolbarProps {
   onZoomChange: (z: number) => void;
   onToolChange: (t: ViewerTool) => void;
   onExtract: () => void;
-  onAutoExtract: () => void;
   extracting: boolean;
   hasHighlights: boolean;
 }
@@ -33,7 +32,7 @@ const ZOOM_OPTIONS = [
 export default function ViewerToolbar({
   currentPage, totalPages, zoom, tool, isOcr,
   onPageChange, onZoomChange, onToolChange,
-  onExtract, onAutoExtract, extracting, hasHighlights,
+  onExtract, extracting, hasHighlights,
 }: ViewerToolbarProps) {
 
   const toolBtn = (t: ViewerTool, icon: React.ReactNode, label: string) => (
@@ -154,19 +153,7 @@ export default function ViewerToolbar({
         </span>
       )}
 
-      {/* Auto-Extract button */}
-      <Button
-        size="sm"
-        variant="outline"
-        className="ml-2 font-semibold text-xs h-8 px-3 border-blue-400/40 text-blue-300 hover:bg-blue-500/10 hover:text-blue-200 bg-transparent"
-        disabled={extracting}
-        onClick={onAutoExtract}
-      >
-        {extracting && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
-        ⚡ Auto-Extract
-      </Button>
-
-      {/* Manual Extract button */}
+      {/* Extract button */}
       <Button
         size="sm"
         className="bg-blue-600 text-white hover:bg-blue-700 font-semibold text-xs h-8 px-4"

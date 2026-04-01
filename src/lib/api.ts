@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { PageInfo, Highlight, ExtractedRow } from '@/types/utilscraper';
-import { extractFromRegions, autoExtractWithHighlights } from './pdf-extract';
+import { extractFromRegions } from './pdf-extract';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -244,104 +244,6 @@ export async function extractRegions(
   }));
 }
 
-// ---------------------------------------------------------------------------
-// autoExtract — AUTO EXTRACT MODE
-// Extracts ALL fields from ALL pages — no highlighting needed.
-// Backend runs the full OCR + regex pipeline on every page.
-// Falls back to client-side pdfjs regex if backend is offline.
-// ---------------------------------------------------------------------------
-export async function autoExtract(
-  file: File,
-  provider: string,
-  sessionId?: string,
-): Promise<{
-  rows: ExtractedRow[];
-  highlights: Record<number, Highlight[]>;
-}> {
-
-  // Try backend auto-extract (handles ALL pages including scanned ones)
-  try {
-    if (backendOnline && sessionId && !sessionId.startsWith('local-')) {
-      const res = await fetch(`${BACKEND_URL}/api/utility/auto-extract`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-
-        // Convert backend results to the ExtractedRow[] format the frontend expects
-        const rows: ExtractedRow[] = [];
-        for (const bill of data.results) {
-          const fields = [
-            'property_name',
-            'account_number',
-            'address',
-            'billing_date_start',
-            'total_gas_bill',
-          ] as const;
-
-          for (const field of fields) {
-            const value = bill[field];
-            if (value) {
-              rows.push({
-                page:       bill.page,
-                // billing_date_start → billing_date for frontend compat
-                field:      field === 'billing_date_start' ? 'billing_date' : field,
-                value,
-                confidence: 'high',
-                wasOcr:     bill.was_ocr ?? false,
-              });
-            }
-          }
-        }
-
-        // Build highlights using EXACT positions from backend (PyMuPDF search).
-        // Backend computes precise coords for native pages via page.search_for()
-        // and uses tight approximate coords for OCR/scanned pages.
-        const highlights: Record<number, Highlight[]> = {};
-        for (const row of rows) {
-          const pageNum = row.page;
-          if (!highlights[pageNum]) highlights[pageNum] = [];
-
-          // Get backend highlight coords for this field
-          const pageHls: any[] =
-            data.highlights?.[String(row.page)] ||
-            data.highlights?.[row.page] ||
-            [];
-
-          const backendHl = pageHls.find((h: any) => {
-            const hf = h.field === 'billing_date_start' ? 'billing_date' : h.field;
-            const rf = row.field === 'billing_date_start' ? 'billing_date' : row.field;
-            return hf === rf;
-          });
-
-          highlights[pageNum].push({
-            id:              `auto-${row.page}-${row.field}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-            page:            row.page,
-            field:           row.field,
-            x:               backendHl?.x      ?? 0,
-            y:               backendHl?.y      ?? 0,
-            width:           backendHl?.width  ?? 0,
-            height:          backendHl?.height ?? 0,
-            extractedValue:  row.value,
-            confidence:      row.confidence,
-            wasOcr:          row.wasOcr,
-            isAutoExtracted: true,
-          });
-        }
-
-        return { rows, highlights };
-      }
-    }
-  } catch (err) {
-    console.error('Backend auto-extract failed, falling back to client-side:', err);
-  }
-
-  // Client-side fallback — regex-based, works on native pages only
-  return autoExtractWithHighlights(file, provider);
-}
 
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));

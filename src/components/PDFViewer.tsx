@@ -14,7 +14,6 @@ interface PDFViewerProps {
   session: PDFSession;
   onHighlightsChange: (sessionId: string, highlights: Record<number, Highlight[]>) => void;
   onExtract: () => void;
-  onAutoExtract: () => void;
   extracting: boolean;
 }
 
@@ -22,7 +21,6 @@ export default function PDFViewer({
   session,
   onHighlightsChange,
   onExtract,
-  onAutoExtract,
   extracting,
 }: PDFViewerProps) {
   const [currentPage, setCurrentPage]   = useState(1);
@@ -247,7 +245,6 @@ export default function PDFViewer({
         onZoomChange={setZoom}
         onToolChange={handleToolChange}
         onExtract={onExtract}
-        onAutoExtract={onAutoExtract}
         extracting={extracting}
         hasHighlights={allHighlights.length > 0}
       />

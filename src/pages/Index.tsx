@@ -9,10 +9,9 @@ import ProcessingModal from '@/components/ProcessingModal';
 import PDFViewer from '@/components/PDFViewer';
 import ExcelPanel from '@/components/ExcelPanel';
 import type { PDFSession, Highlight, ExtractedRow } from '@/types/utilscraper';
-import { processFile, extractRegions, autoExtract } from '@/lib/api';
+import { processFile, extractRegions } from '@/lib/api';
 
 export default function Index() {
-  const [provider, setProvider]                   = useState('National Grid Gas');
   const [sessions, setSessions]                   = useState<PDFSession[]>([]);
   const [expandedId, setExpandedId]               = useState<string | null>(null);
   const [pendingFiles, setPendingFiles]           = useState<File[]>([]);
@@ -62,7 +61,7 @@ export default function Index() {
       setModalDetail('');
 
       try {
-        const result = await processFile(file, provider, (step, detail) => {
+        const result = await processFile(file, '', (step, detail) => {
           setModalStep(step);
           setModalDetail(detail || '');
         });
@@ -91,7 +90,7 @@ export default function Index() {
     }
     setPendingFiles([]);
     setProcessing(false);
-  }, [pendingFiles, provider]);
+  }, [pendingFiles]);
 
   const handleHighlightsChange = useCallback(
     (sessionId: string, highlights: Record<number, Highlight[]>) => {
@@ -165,46 +164,6 @@ export default function Index() {
     setExtracting(false);
   }, [expandedSession, clearSessionCache]);
 
-  // ---------------------------------------------------------------------------
-  // Auto-extract
-  // ---------------------------------------------------------------------------
-  const handleAutoExtract = useCallback(async () => {
-    if (!expandedSession?.file) {
-      toast.error('PDF file not found. Please re-upload.');
-      return;
-    }
-
-    // Clear stale results before auto-extracting
-    clearSessionCache(expandedSession.id);
-
-    setExtracting(true);
-    try {
-      const { rows, highlights } = await autoExtract(
-        expandedSession.file, provider, expandedSession.id,
-      );
-
-      setSessions(prev =>
-        prev.map(s =>
-          s.id === expandedSession.id
-            ? { ...s, extractedData: rows, highlights, status: 'extracted' as const }
-            : s,
-        ),
-      );
-      setShowExcel(true);
-
-      if (rows.length === 0) {
-        toast.warning('No fields detected. Try drawing highlight boxes manually.');
-      } else {
-        const nullCount = rows.filter(r => !r.value).length;
-        toast.success(`Auto-extracted ${rows.length} value${rows.length !== 1 ? 's' : ''} across all pages`);
-        if (nullCount > 0) toast.warning(`${nullCount} field${nullCount !== 1 ? 's' : ''} returned empty`);
-      }
-    } catch (err: any) {
-      toast.error(`Auto-extraction failed: ${err.message}`);
-    }
-    setExtracting(false);
-  }, [expandedSession, provider, clearSessionCache]);
-
   const hasUploaded  = sessions.length > 0 || pendingFiles.length > 0;
   const showSidebar  = !expandedId || !sidebarCollapsed;
 
@@ -218,7 +177,7 @@ export default function Index() {
         </div>
       )}
 
-      <AppHeader provider={provider} onProviderChange={setProvider} />
+      <AppHeader />
 
       <div className="flex-1 flex overflow-hidden">
 
@@ -296,7 +255,6 @@ export default function Index() {
                 session={expandedSession}
                 onHighlightsChange={handleHighlightsChange}
                 onExtract={handleExtract}
-                onAutoExtract={handleAutoExtract}
                 extracting={extracting}
               />
             </div>
@@ -306,7 +264,7 @@ export default function Index() {
                 <ExcelPanel
                   data={expandedSession.extractedData}
                   filename={expandedSession.filename}
-                  provider={provider}
+                  provider="Utility Bill"
                   onClose={() => setShowExcel(false)}
                   onReExtract={handleExtract}
                   onDataChange={(d: ExtractedRow[]) =>

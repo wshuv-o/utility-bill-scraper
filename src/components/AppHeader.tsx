@@ -1,38 +1,15 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FileText } from 'lucide-react';
 
-interface AppHeaderProps {
-  provider: string;
-  onProviderChange: (v: string) => void;
-}
-
-const PROVIDERS = [
-  'National Grid Gas',
-  'Con Edison',
-  'Spectrum Phone & Internet',
-  'FPL Northwest energy',
-  'Chipley',
-  'NYC Environmental Protection',
-  'Tiffany Water & Sewer',
-
-];
-
-export default function AppHeader({ provider, onProviderChange }: AppHeaderProps) {
+export default function AppHeader() {
   return (
-    <header className="h-14 flex items-center justify-between px-5 border-b border-border bg-card shrink-0">
-      <div className="flex items-center gap-3">
-        <h1 className="text-lg font-bold text-primary tracking-tight">UtilScraper</h1>
-        <span className="text-sm text-muted-foreground hidden sm:inline">Utility Bill PDF Extractor</span>
+    <header className="h-12 bg-card border-b border-border flex items-center px-4 gap-3 shrink-0">
+      <div className="flex items-center gap-2">
+        <FileText className="w-5 h-5 text-blue-600" />
+        <span className="font-semibold text-sm text-foreground">UtilScraper</span>
       </div>
-      <Select value={provider} onValueChange={onProviderChange}>
-        <SelectTrigger className="w-48 h-9 text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {PROVIDERS.map(p => (
-            <SelectItem key={p} value={p}>{p}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <span className="text-xs text-muted-foreground">
+        Upload a utility bill PDF, draw boxes over the values you want, then click Extract
+      </span>
     </header>
   );
 }
