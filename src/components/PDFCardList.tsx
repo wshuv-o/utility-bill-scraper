@@ -8,50 +8,22 @@ interface PDFCardListProps {
 }
 
 function StatusBadge({ session }: { session: PDFSession }) {
-  // Guard: pages may not be populated yet during upload/processing
-  const ocrCount = Array.isArray(session.pages)
-    ? session.pages.filter(p => p.is_ocr).length
-    : 0;
+  const ocrCount = Array.isArray(session.pages) ? session.pages.filter(p => p.is_ocr).length : 0;
 
   switch (session.status) {
     case 'uploading':
-      return (
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Loader2 className="w-3 h-3 animate-spin" />
-          Uploading...
-        </span>
-      );
-
+      return <span className="flex items-center gap-1 text-[11px] text-gray-400"><Loader2 className="w-3 h-3 animate-spin" />Uploading...</span>;
     case 'processing':
-      return (
-        <span className="flex items-center gap-1.5 text-xs text-blue-500">
-          <Loader2 className="w-3 h-3 animate-spin" />
-          Analysing pages...
-        </span>
-      );
-
+      return <span className="flex items-center gap-1 text-[11px] text-blue-500"><Loader2 className="w-3 h-3 animate-spin" />Analysing...</span>;
     case 'ready':
       return (
-        <span className="flex items-center gap-2 flex-wrap">
-          {ocrCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
-              {ocrCount} page{ocrCount !== 1 ? 's' : ''} OCR'd
-            </span>
-          )}
-          <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-            Ready to highlight
-          </span>
+        <span className="flex items-center gap-1.5 flex-wrap">
+          {ocrCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{ocrCount} OCR</span>}
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Ready</span>
         </span>
       );
-
     case 'extracted':
-      return (
-        <span className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-          <Check className="w-3 h-3" />
-          Extracted
-        </span>
-      );
-
+      return <span className="flex items-center gap-1 text-[11px] text-green-600 font-medium"><Check className="w-3 h-3" />Extracted</span>;
     default:
       return null;
   }
@@ -61,14 +33,12 @@ export default function PDFCardList({ sessions, expandedId, onToggle }: PDFCardL
   if (!sessions.length) return null;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {sessions.map(s => {
-        const expanded   = expandedId === s.id;
-        const isLoading  = s.status === 'uploading' || s.status === 'processing';
+        const expanded  = expandedId === s.id;
+        const isLoading = s.status === 'uploading' || s.status === 'processing';
 
         return (
-          // Use div + role="button" instead of <button> to avoid
-          // invalid nesting of block elements (<p> etc.) inside <button>
           <div
             key={s.id}
             role="button"
@@ -76,43 +46,27 @@ export default function PDFCardList({ sessions, expandedId, onToggle }: PDFCardL
             aria-expanded={expanded}
             aria-disabled={isLoading}
             className={[
-              'w-full text-left rounded-lg border p-3 flex items-center gap-3 transition-colors',
-              isLoading
-                ? 'border-border bg-card opacity-60 cursor-not-allowed'
-                : expanded
-                  ? 'border-blue-500 bg-blue-50/50 cursor-pointer'
-                  : 'border-border bg-card hover:border-blue-400 cursor-pointer',
+              'w-full text-left rounded-lg px-3 py-2.5 flex items-center gap-2.5 transition-colors',
+              isLoading  ? 'opacity-60 cursor-not-allowed bg-gray-50' :
+              expanded   ? 'bg-green-50 border border-green-200 cursor-pointer' :
+                           'bg-gray-50 border border-transparent hover:border-gray-200 hover:bg-white cursor-pointer',
             ].join(' ')}
             onClick={() => !isLoading && onToggle(s.id)}
-            onKeyDown={e => {
-              if (!isLoading && (e.key === 'Enter' || e.key === ' ')) {
-                e.preventDefault();
-                onToggle(s.id);
-              }
-            }}
+            onKeyDown={e => { if (!isLoading && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onToggle(s.id); } }}
           >
-            <FileText className="w-5 h-5 text-muted-foreground shrink-0" />
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${expanded ? 'bg-green-100' : 'bg-gray-200'}`}>
+              <FileText className={`w-3.5 h-3.5 ${expanded ? 'text-green-600' : 'text-gray-500'}`} />
+            </div>
 
             <div className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold truncate max-w-[30ch]">
-                {s.filename}
-              </span>
-              <div className="mt-0.5">
-                <StatusBadge session={s} />
-              </div>
+              <p className="text-xs font-semibold truncate text-gray-700">{s.filename}</p>
+              <div className="mt-0.5"><StatusBadge session={s} /></div>
             </div>
 
             {s.total_pages > 0 && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">
-                {s.total_pages} page{s.total_pages !== 1 ? 's' : ''}
-              </span>
+              <span className="text-[10px] text-gray-400 shrink-0">{s.total_pages}p</span>
             )}
-
-            <ChevronRight
-              className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${
-                expanded ? 'rotate-90' : ''
-              }`}
-            />
+            <ChevronRight className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
           </div>
         );
       })}

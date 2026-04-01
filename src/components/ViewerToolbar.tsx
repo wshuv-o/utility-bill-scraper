@@ -41,8 +41,8 @@ export default function ViewerToolbar({
         <button
           className={`p-1.5 rounded transition-colors ${
             tool === t
-              ? 'bg-white/20 text-white'
-              : 'text-white/60 hover:text-white hover:bg-white/10'
+              ? 'bg-green-100 text-green-700'
+              : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
           }`}
           onClick={() => onToolChange(t)}
           aria-label={label}
@@ -56,7 +56,7 @@ export default function ViewerToolbar({
   );
 
   return (
-    <div className="h-11 bg-[#323232] flex items-center px-3 gap-2 shrink-0">
+    <div className="h-10 bg-white border-b border-gray-200 flex items-center px-3 gap-2 shrink-0">
 
       {/* Page navigation */}
       <div className="flex items-center gap-1">
@@ -70,7 +70,7 @@ export default function ViewerToolbar({
         </button>
 
         <Input
-          className="w-10 h-7 text-center text-xs bg-white/10 border-none text-white p-0"
+          className="w-10 h-7 text-center text-xs bg-gray-100 border-none text-gray-700 p-0"
           value={currentPage}
           onChange={e => {
             const n = parseInt(e.target.value);
@@ -94,7 +94,7 @@ export default function ViewerToolbar({
       {/* Zoom controls */}
       <div className="flex items-center gap-1 ml-3">
         <button
-          className="p-1 text-white/60 hover:text-white transition-colors"
+          className="p-1 text-gray-400 hover:text-gray-700 transition-colors"
           onClick={() => onZoomChange(Math.max(0.3, parseFloat((zoom - 0.15).toFixed(2))))}
           aria-label="Zoom out"
         >
@@ -102,7 +102,7 @@ export default function ViewerToolbar({
         </button>
 
         <Select value={String(zoom)} onValueChange={v => onZoomChange(Number(v))}>
-          <SelectTrigger className="w-20 h-7 text-xs bg-white/10 border-none text-white">
+          <SelectTrigger className="w-20 h-7 text-xs bg-gray-100 border-none text-gray-700">
             {/* Display current zoom as percentage */}
             <SelectValue>{Math.round(zoom * 100)}%</SelectValue>
           </SelectTrigger>
@@ -116,7 +116,7 @@ export default function ViewerToolbar({
         </Select>
 
         <button
-          className="p-1 text-white/60 hover:text-white transition-colors"
+          className="p-1 text-gray-400 hover:text-gray-700 transition-colors"
           onClick={() => onZoomChange(Math.min(2.5, parseFloat((zoom + 0.15).toFixed(2))))}
           aria-label="Zoom in"
         >
@@ -125,7 +125,7 @@ export default function ViewerToolbar({
       </div>
 
       {/* Separator */}
-      <div className="w-px h-5 bg-white/20 mx-2" />
+      <div className="w-px h-5 bg-gray-200 mx-2" />
 
       {/* Drawing tools */}
       {toolBtn('cursor',    <MousePointer2 className="w-4 h-4" />, 'Cursor')}
@@ -139,7 +139,7 @@ export default function ViewerToolbar({
       {isOcr ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium cursor-default">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium cursor-default">
               🔍 OCR Processed
             </span>
           </TooltipTrigger>
@@ -148,7 +148,7 @@ export default function ViewerToolbar({
           </TooltipContent>
         </Tooltip>
       ) : (
-        <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/50 cursor-default">
+        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 cursor-default">
           📄 Native Text
         </span>
       )}
@@ -156,7 +156,7 @@ export default function ViewerToolbar({
       {/* Extract button */}
       <Button
         size="sm"
-        className="bg-blue-600 text-white hover:bg-blue-700 font-semibold text-xs h-8 px-4"
+        className="bg-green-600 text-white hover:bg-green-700 font-semibold text-xs h-7 px-4"
         disabled={!hasHighlights || extracting}
         onClick={onExtract}
       >
