@@ -427,8 +427,7 @@ export function exportToExcel(
   const { columns, monthRange } = buildColumns(data, now);
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, buildReconSheet(propMap, columns, monthRange),  'Recon');
   XLSX.utils.book_append_sheet(wb, buildRollUpSheet(propMap, columns, monthRange), 'Roll-Up');
-
+  XLSX.utils.book_append_sheet(wb, buildReconSheet(propMap, columns, monthRange),  'Recon');
   XLSX.writeFile(wb, `UtilScraper_${provider.replace(/\s+/g, '')}_${dateStr}.xlsx`);
 }

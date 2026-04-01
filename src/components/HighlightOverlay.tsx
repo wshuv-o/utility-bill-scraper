@@ -37,18 +37,19 @@ export default function HighlightOverlay({ highlights, drawing, onDelete, tool }
               width:           `${h.width * 100}%`,
               height:          `${h.height * 100}%`,
               backgroundColor: cfg.bgColor,
-              border:          `2px solid ${cfg.color}`,
+              // Dashed border for approximate OCR highlights, solid for exact
+              border:          `2px ${h.isAutoExtracted && h.wasOcr ? 'dashed' : 'solid'} ${cfg.color}`,
               borderRadius:    3,
               zIndex:          10,
+              opacity:         h.isAutoExtracted && h.wasOcr ? 0.75 : 1,
             }}
           >
-            {/* Field label tag — flips below if near top of page */}
+            {/* Field label tag + accuracy tooltip on hover */}
             <span
               className="absolute left-0 text-[10px] font-medium px-1.5 py-0.5 rounded-sm whitespace-nowrap select-none z-20"
               style={{
                 backgroundColor: cfg.color,
                 color:           '#ffffff',
-                // Show below highlight if near top, above otherwise
                 ...(labelBelow
                   ? { top: 'calc(100% + 2px)' }
                   : { bottom: 'calc(100% + 2px)' }
@@ -71,6 +72,54 @@ export default function HighlightOverlay({ highlights, drawing, onDelete, tool }
               >
                 {statusIcon}
               </span>
+            )}
+
+            {/* Hover tooltip — shows extracted value + OCR confidence */}
+            {hasValue && (
+              <div
+                className="absolute left-0 z-50 hidden group-hover:flex flex-col gap-1
+                           bg-gray-900 text-white text-[11px] rounded-md shadow-xl
+                           px-2.5 py-2 min-w-[160px] max-w-[260px] pointer-events-none"
+                style={{
+                  ...(labelBelow
+                    ? { top: 'calc(100% + 22px)' }
+                    : { bottom: 'calc(100% + 22px)' }
+                  ),
+                }}
+              >
+                {/* Extracted value */}
+                <span className="font-semibold text-white truncate">
+                  {h.extractedValue}
+                </span>
+                {/* Accuracy bar */}
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: h.confidence === 'high' ? '100%'
+                             : h.confidence === 'medium' ? '60%' : '25%',
+                        backgroundColor: h.confidence === 'high' ? '#22c55e'
+                                       : h.confidence === 'medium' ? '#f59e0b' : '#ef4444',
+                      }}
+                    />
+                  </div>
+                  <span
+                    className="text-[10px] font-medium shrink-0"
+                    style={{
+                      color: h.confidence === 'high' ? '#86efac'
+                           : h.confidence === 'medium' ? '#fcd34d' : '#fca5a5',
+                    }}
+                  >
+                    {h.confidence === 'high' ? 'High' : h.confidence === 'medium' ? 'Medium' : 'Low'}
+                    {' accuracy'}
+                  </span>
+                </div>
+                {/* OCR badge */}
+                {h.wasOcr && (
+                  <span className="text-[10px] text-amber-300 mt-0.5">🔍 OCR extracted</span>
+                )}
+              </div>
             )}
 
             {/* Delete button — always inside the highlight box, top-right corner */}
