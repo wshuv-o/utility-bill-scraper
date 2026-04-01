@@ -128,14 +128,11 @@ export default function Index() {
         results = await extractRegions(expandedSession.id, needsExtraction, expandedSession.file);
       }
 
-      // Match results back to highlights by position in the needsExtraction array
-      // (not by page+field which would collapse duplicate fields on same page)
       const newHighlights = { ...expandedSession.highlights };
       let resultIdx = 0;
       for (const [pageNum, pageHls] of Object.entries(newHighlights)) {
         newHighlights[Number(pageNum)] = pageHls.map(h => {
           if (h.isAutoExtracted && h.extractedValue != null) return h;
-          // Skip highlights that weren't sent for extraction
           if (h.extractedValue !== undefined && h.extractedValue !== null) return h;
           const result = results[resultIdx++];
           return result ? { ...h, extractedValue: result.value, confidence: result.confidence, wasOcr: result.wasOcr } : h;
@@ -145,10 +142,11 @@ export default function Index() {
       const allResults: ExtractedRow[] = Object.values(newHighlights).flat()
         .filter(h => h.extractedValue !== undefined)
         .map(h => ({
-          page: h.page, field: h.field,
-          value: h.extractedValue ?? null,
+          page:       h.page,
+          field:      h.field,
+          value:      h.extractedValue ?? null,
           confidence: h.confidence ?? 'low',
-          wasOcr: h.wasOcr ?? false,
+          wasOcr:     h.wasOcr ?? false,
         }));
 
       setSessions(prev =>
@@ -168,6 +166,66 @@ export default function Index() {
     }
     setExtracting(false);
   }, [expandedSession, clearSessionCache]);
+
+  // Re-extract a single highlight — resets its extractedValue then triggers extract
+  const handleReExtractHighlight = useCallback(async (highlightId: string) => {
+    if (!expandedSession?.file) return;
+
+    // Find the highlight across all pages
+    const newHighlights = { ...expandedSession.highlights };
+    let found: Highlight | null = null;
+    for (const [pageNum, pageHls] of Object.entries(newHighlights)) {
+      const updated = pageHls.map(h => {
+        if (h.id === highlightId) {
+          found = { ...h, extractedValue: undefined, confidence: undefined };
+          return found;
+        }
+        return h;
+      });
+      newHighlights[Number(pageNum)] = updated;
+    }
+    if (!found) return;
+
+    // Update session with reset highlight then trigger extraction for just this one
+    setSessions(prev =>
+      prev.map(s => s.id === expandedSession.id ? { ...s, highlights: newHighlights } : s)
+    );
+
+    setExtracting(true);
+    try {
+      const results = await extractRegions(expandedSession.id, [found], expandedSession.file);
+      const result = results[0];
+      if (!result) return;
+
+      setSessions(prev =>
+        prev.map(s => {
+          if (s.id !== expandedSession.id) return s;
+          const hls = { ...s.highlights };
+          for (const [pageNum, pageHls] of Object.entries(hls)) {
+            hls[Number(pageNum)] = pageHls.map(h =>
+              h.id === highlightId
+                ? { ...h, extractedValue: result.value, confidence: result.confidence, wasOcr: result.wasOcr }
+                : h
+            );
+          }
+          const allResults: ExtractedRow[] = Object.values(hls).flat()
+            .filter(h => h.extractedValue !== undefined)
+            .map(h => ({
+              page: h.page, field: h.field,
+              value: h.extractedValue ?? null,
+              confidence: h.confidence ?? 'low',
+              wasOcr: h.wasOcr ?? false,
+            }));
+          return { ...s, highlights: hls, extractedData: allResults };
+        })
+      );
+      if (result.value) toast.success(`Re-extracted: ${result.value}`);
+      else toast.warning('Re-extraction returned empty — try redrawing the box');
+    } catch (err: any) {
+      toast.error(`Re-extraction failed: ${err.message}`);
+    }
+    setExtracting(false);
+  }, [expandedSession]);
 
   const hasUploaded  = sessions.length > 0 || pendingFiles.length > 0;
   const showSidebar  = !expandedId || !sidebarCollapsed;
@@ -260,6 +318,7 @@ export default function Index() {
                 session={expandedSession}
                 onHighlightsChange={handleHighlightsChange}
                 onExtract={handleExtract}
+                onReExtract={handleReExtractHighlight}
                 extracting={extracting}
               />
             </div>

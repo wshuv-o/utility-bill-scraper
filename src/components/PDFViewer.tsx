@@ -14,6 +14,7 @@ interface PDFViewerProps {
   session: PDFSession;
   onHighlightsChange: (sessionId: string, highlights: Record<number, Highlight[]>) => void;
   onExtract: () => void;
+  onReExtract: (highlightId: string) => void;
   extracting: boolean;
 }
 
@@ -21,6 +22,7 @@ export default function PDFViewer({
   session,
   onHighlightsChange,
   onExtract,
+  onReExtract,
   extracting,
 }: PDFViewerProps) {
   const [currentPage, setCurrentPage]   = useState(1);
@@ -299,6 +301,7 @@ export default function PDFViewer({
               highlights={pageHighlights}
               drawing={drawing ? { x: drawing.x, y: drawing.y, w: drawing.w, h: drawing.h } : null}
               onDelete={handleDeleteHighlight}
+              onReExtract={onReExtract}
               tool={tool}
             />
 
