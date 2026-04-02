@@ -1,18 +1,21 @@
 import { useCallback, useRef, useState } from 'react';
-import { Upload, FileText } from 'lucide-react';
+import { Upload, FileText, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DOCUMENT_TYPES, type DocumentType } from '@/types/utilscraper';
 
 interface UploadZoneProps {
   compact: boolean;
   onFilesSelected: (files: File[]) => void;
   hasFiles: boolean;
   pendingFiles: File[];
+  docType: DocumentType;
+  onDocTypeChange: (t: DocumentType) => void;
   onProcess: () => void;
   processing: boolean;
 }
 
 export default function UploadZone({
-  compact, onFilesSelected, hasFiles, pendingFiles, onProcess, processing,
+  compact, onFilesSelected, hasFiles, pendingFiles, docType, onDocTypeChange, onProcess, processing,
 }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -34,11 +37,17 @@ export default function UploadZone({
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.click(); }
   }, []);
 
+  const activeDt = DOCUMENT_TYPES.find(d => d.value === docType)!;
   const hasPending = pendingFiles.length > 0;
+
+  const docTypeDropdown = (
+    <DocTypeDropdown docType={docType} onChange={onDocTypeChange} />
+  );
 
   if (compact) {
     return (
       <div className="space-y-2">
+        {docTypeDropdown}
         <div
           role="button"
           tabIndex={0}
@@ -66,7 +75,8 @@ export default function UploadZone({
               ))}
             </ul>
             <Button
-              className="w-full text-xs font-semibold bg-green-600 hover:bg-green-700 text-white h-8"
+              className="w-full text-xs font-semibold text-white h-8"
+              style={{ backgroundColor: activeDt.color }}
               onClick={onProcess}
               disabled={processing}
             >
@@ -80,6 +90,7 @@ export default function UploadZone({
 
   return (
     <div className="space-y-3">
+      {docTypeDropdown}
       <div
         role="button"
         tabIndex={0}
@@ -112,13 +123,51 @@ export default function UploadZone({
             ))}
           </ul>
           <Button
-            className="w-full text-sm font-semibold bg-green-600 hover:bg-green-700 text-white"
+            className="w-full text-sm font-semibold text-white"
+            style={{ backgroundColor: activeDt.color }}
             onClick={onProcess}
             disabled={processing}
           >
             {processing ? 'Processing...' : `Process ${pendingFiles.length} PDF${pendingFiles.length > 1 ? 's' : ''}`}
           </Button>
         </>
+      )}
+    </div>
+  );
+}
+
+function DocTypeDropdown({ docType, onChange }: { docType: DocumentType; onChange: (t: DocumentType) => void }) {
+  const [open, setOpen] = useState(false);
+  const active = DOCUMENT_TYPES.find(d => d.value === docType)!;
+
+  return (
+    <div className="relative">
+      <button
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-gray-200
+                   bg-white text-xs font-medium text-gray-700 hover:border-gray-300 transition-colors"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: active.color }} />
+          {active.label}
+        </span>
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+          {DOCUMENT_TYPES.map(dt => (
+            <button
+              key={dt.value}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors
+                ${docType === dt.value ? 'bg-gray-50 font-semibold text-gray-800' : 'text-gray-600 hover:bg-gray-50'}`}
+              onClick={() => { onChange(dt.value); setOpen(false); }}
+            >
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dt.color }} />
+              {dt.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -309,6 +309,7 @@ export default function PDFViewer({
               <FieldLabelPicker
                 x={pickerPos.x}
                 y={pickerPos.y}
+                docType={session.docType}
                 onSelect={handleLabelSelect}
                 onCancel={() => setPickerPos(null)}
               />

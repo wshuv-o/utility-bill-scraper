@@ -1,17 +1,25 @@
 import { useState } from 'react';
-import { FIELD_LABELS, type FieldLabel } from '@/types/utilscraper';
+import { FIELD_LABELS, getFieldLabelsForType, type FieldLabel, type DocumentType } from '@/types/utilscraper';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   x: number;
   y: number;
+  docType: DocumentType;
   onSelect: (field: FieldLabel, customLabel?: string) => void;
   onCancel: () => void;
 }
 
-export default function FieldLabelPicker({ x, y, onSelect, onCancel }: Props) {
+export default function FieldLabelPicker({ x, y, docType, onSelect, onCancel }: Props) {
   const [showCustom, setShowCustom] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
+
+  const labels = getFieldLabelsForType(docType).filter(f => f.value !== 'custom');
+
+  const submitCustom = () => {
+    if (customLabel.trim()) onSelect('custom', customLabel.trim());
+  };
 
   return (
     <div
@@ -21,7 +29,7 @@ export default function FieldLabelPicker({ x, y, onSelect, onCancel }: Props) {
       onMouseDown={e => e.stopPropagation()}
     >
       <p className="text-xs font-semibold text-muted-foreground px-2 py-1">Label this field:</p>
-      {FIELD_LABELS.filter(f => f.value !== 'custom').map(f => (
+      {labels.map(f => (
         <button
           key={f.value}
           className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-muted flex items-center gap-2"
@@ -39,18 +47,26 @@ export default function FieldLabelPicker({ x, y, onSelect, onCancel }: Props) {
           Custom...
         </button>
       ) : (
-        <div className="px-2 py-1">
+        <div className="px-2 py-1 flex gap-1">
           <Input
-            className="h-7 text-xs"
+            className="h-7 text-xs flex-1"
             placeholder="Field name..."
             autoFocus
             value={customLabel}
             onChange={e => setCustomLabel(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter' && customLabel.trim()) onSelect('custom', customLabel.trim());
+              if (e.key === 'Enter') submitCustom();
               if (e.key === 'Escape') onCancel();
             }}
           />
+          <Button
+            size="sm"
+            className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+            disabled={!customLabel.trim()}
+            onClick={submitCustom}
+          >
+            Add
+          </Button>
         </div>
       )}
     </div>

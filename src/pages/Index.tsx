@@ -10,7 +10,7 @@ import PDFCardList from '@/components/PDFCardList';
 import ProcessingModal from '@/components/ProcessingModal';
 import PDFViewer from '@/components/PDFViewer';
 import ExcelPanel from '@/components/ExcelPanel';
-import type { PDFSession, Highlight, ExtractedRow } from '@/types/utilscraper';
+import type { PDFSession, Highlight, ExtractedRow, DocumentType } from '@/types/utilscraper';
 import { processFile, extractRegions } from '@/lib/api';
 
 export default function Index() {
@@ -25,6 +25,7 @@ export default function Index() {
   const [showExcel, setShowExcel]               = useState(false);
   const [backendDown, setBackendDown]           = useState(false);
   const [navCollapsed, setNavCollapsed]         = useState(false);
+  const [pendingDocType, setPendingDocType]     = useState<DocumentType>('utility_bill');
 
   const expandedSession = sessions.find(s => s.id === expandedId);
   const hasUploaded     = sessions.length > 0 || pendingFiles.length > 0;
@@ -48,6 +49,7 @@ export default function Index() {
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       setSessions(prev => [...prev, {
         id: tempId, filename: file.name, file,
+        docType: pendingDocType,
         total_pages: 0, pages: [], status: 'processing',
         highlights: {}, extractedData: [],
       }]);
@@ -72,7 +74,7 @@ export default function Index() {
       }
     }
     setPendingFiles([]); setProcessing(false);
-  }, [pendingFiles]);
+  }, [pendingFiles, pendingDocType]);
 
   const handleHighlightsChange = useCallback((sessionId: string, highlights: Record<number, Highlight[]>) => {
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, highlights } : s));
@@ -199,6 +201,8 @@ export default function Index() {
                   onFilesSelected={handleFilesSelected}
                   hasFiles={pendingFiles.length > 0}
                   pendingFiles={pendingFiles}
+                  docType={pendingDocType}
+                  onDocTypeChange={setPendingDocType}
                   onProcess={handleProcess}
                   processing={processing}
                 />

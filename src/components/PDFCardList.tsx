@@ -1,5 +1,6 @@
 import { FileText, ChevronRight, Loader2, Check } from 'lucide-react';
 import type { PDFSession } from '@/types/utilscraper';
+import { DOCUMENT_TYPES } from '@/types/utilscraper';
 
 interface PDFCardListProps {
   sessions: PDFSession[];
@@ -60,7 +61,20 @@ export default function PDFCardList({ sessions, expandedId, onToggle }: PDFCardL
 
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold truncate text-gray-700">{s.filename}</p>
-              <div className="mt-0.5"><StatusBadge session={s} /></div>
+              <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                {(() => {
+                  const dt = DOCUMENT_TYPES.find(d => d.value === s.docType);
+                  return dt ? (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                      style={{ color: dt.color, backgroundColor: `${dt.color}18` }}
+                    >
+                      {dt.label}
+                    </span>
+                  ) : null;
+                })()}
+                <StatusBadge session={s} />
+              </div>
             </div>
 
             {s.total_pages > 0 && (
