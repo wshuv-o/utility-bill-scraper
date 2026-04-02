@@ -15,7 +15,7 @@ interface PDFViewerProps {
   onHighlightsChange: (sessionId: string, highlights: Record<number, Highlight[]>) => void;
   onExtract: () => void;
   onReExtract: (highlightId: string) => void;
-  onApplyToAllPdfs: (templateHighlights: Highlight[]) => void;
+  onApplyToAllPdfs: (sourceHighlights: Record<number, Highlight[]>) => void;
   extracting: boolean;
 }
 
@@ -269,11 +269,11 @@ export default function PDFViewer({
     onHighlightsChange(session.id, {});
   }, [session.id, onHighlightsChange]);
 
-  // Send current page highlights up to Index for cross-PDF application
+  // Send the full highlights map to Index for cross-PDF mirroring (page-for-page)
   const handleApplyToAllPdfs = useCallback(() => {
-    if (pageHighlights.length === 0) return;
-    onApplyToAllPdfs(pageHighlights);
-  }, [pageHighlights, onApplyToAllPdfs]);
+    if (allHighlights.length === 0) return;
+    onApplyToAllPdfs(session.highlights);
+  }, [allHighlights, session.highlights, onApplyToAllPdfs]);
 
   // Close picker on Escape
   useEffect(() => {

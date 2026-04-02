@@ -57,13 +57,11 @@ export default function Index() {
     });
   }, [activeTabId]);
 
-  const clearSessionCache = useCallback((sessionId: string) => {
-    setSessions(prev =>
-      prev.map(s => s.id === sessionId
-        ? { ...s, extractedData: [], highlights: {}, status: 'ready' as const } : s)
-    );
-    setShowExcel(false);
-  }, []);
+  // Combined extracted data from ALL sessions for the Excel panel
+  const combinedExtractedData = useMemo(
+    () => sessions.flatMap(s => s.extractedData),
+    [sessions],
+  );
 
   const handleFilesSelected = useCallback((files: File[]) => {
     setPendingFiles(prev => [...prev, ...files]);
@@ -124,41 +122,62 @@ export default function Index() {
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, highlights } : s));
   }, []);
 
+  // Extract ALL sessions that have highlights (not just the active tab)
   const handleExtract = useCallback(async () => {
-    if (!activeSession?.file) { toast.error('PDF file not found. Please re-upload.'); return; }
-    const allHighlights = Object.values(activeSession.highlights).flat();
-    if (!allHighlights.length) { toast('Draw highlight boxes first', { icon: 'ℹ️' }); return; }
-    clearSessionCache(activeSession.id);
+    const targets = sessions.filter(s =>
+      s.file && Object.values(s.highlights).flat().length > 0 &&
+      (s.status === 'ready' || s.status === 'extracted')
+    );
+    if (!targets.length) { toast('Draw highlight boxes first', { icon: 'ℹ️' }); return; }
+
     setExtracting(true);
-    try {
-      const needsExtraction = allHighlights.filter(
+    let totalExtracted = 0;
+    let totalNull = 0;
+
+    for (const sess of targets) {
+      const allHl = Object.values(sess.highlights).flat();
+      const needsExtraction = allHl.filter(
         h => !h.isAutoExtracted && (h.extractedValue === undefined || h.extractedValue === null)
       );
-      let results: ExtractedRow[] = [];
-      if (needsExtraction.length > 0)
-        results = await extractRegions(activeSession.id, needsExtraction, activeSession.file);
-      const newHighlights = { ...activeSession.highlights };
-      let idx = 0;
-      for (const [pageNum, pageHls] of Object.entries(newHighlights)) {
-        newHighlights[Number(pageNum)] = pageHls.map(h => {
-          if (h.isAutoExtracted && h.extractedValue != null) return h;
-          if (h.extractedValue !== undefined && h.extractedValue !== null) return h;
-          const r = results[idx++];
-          return r ? { ...h, extractedValue: r.value, confidence: r.confidence, wasOcr: r.wasOcr } : h;
-        });
+
+      try {
+        let results: ExtractedRow[] = [];
+        if (needsExtraction.length > 0)
+          results = await extractRegions(sess.id, needsExtraction, sess.file!);
+
+        const newHighlights = { ...sess.highlights };
+        let idx = 0;
+        for (const [pageNum, pageHls] of Object.entries(newHighlights)) {
+          newHighlights[Number(pageNum)] = pageHls.map(h => {
+            if (h.isAutoExtracted && h.extractedValue != null) return h;
+            if (h.extractedValue !== undefined && h.extractedValue !== null) return h;
+            const r = results[idx++];
+            return r ? { ...h, extractedValue: r.value, confidence: r.confidence, wasOcr: r.wasOcr } : h;
+          });
+        }
+        const sessResults: ExtractedRow[] = Object.values(newHighlights).flat()
+          .filter(h => h.extractedValue !== undefined)
+          .map(h => ({
+            page: h.page, field: h.field, value: h.extractedValue ?? null,
+            confidence: h.confidence ?? 'low', wasOcr: h.wasOcr ?? false,
+            filename: sess.filename, sessionId: sess.id,
+          }));
+
+        setSessions(prev => prev.map(s => s.id === sess.id
+          ? { ...s, highlights: newHighlights, extractedData: sessResults, status: 'extracted' as const } : s));
+
+        totalExtracted += sessResults.length;
+        totalNull += sessResults.filter(r => !r.value).length;
+      } catch (err: any) {
+        toast.error(`Extraction failed for ${sess.filename}: ${err.message}`);
       }
-      const allResults: ExtractedRow[] = Object.values(newHighlights).flat()
-        .filter(h => h.extractedValue !== undefined)
-        .map(h => ({ page: h.page, field: h.field, value: h.extractedValue ?? null, confidence: h.confidence ?? 'low', wasOcr: h.wasOcr ?? false }));
-      setSessions(prev => prev.map(s => s.id === activeSession.id
-        ? { ...s, highlights: newHighlights, extractedData: allResults, status: 'extracted' as const } : s));
-      setShowExcel(true);
-      const nullCount = allResults.filter(r => !r.value).length;
-      toast.success(`Extracted ${allResults.length} value${allResults.length !== 1 ? 's' : ''}`);
-      if (nullCount > 0) toast.warning(`${nullCount} field${nullCount !== 1 ? 's' : ''} returned empty`);
-    } catch (err: any) { toast.error(`Extraction failed: ${err.message}`); }
+    }
+
+    setShowExcel(true);
+    toast.success(`Extracted ${totalExtracted} value${totalExtracted !== 1 ? 's' : ''} from ${targets.length} PDF${targets.length !== 1 ? 's' : ''}`);
+    if (totalNull > 0) toast.warning(`${totalNull} field${totalNull !== 1 ? 's' : ''} returned empty`);
     setExtracting(false);
-  }, [activeSession, clearSessionCache]);
+  }, [sessions]);
 
   const handleReExtractHighlight = useCallback(async (highlightId: string) => {
     if (!activeSession?.file) return;
@@ -194,26 +213,29 @@ export default function Index() {
     setExtracting(false);
   }, [activeSession]);
 
-  // Apply template highlights to ALL open PDFs (all pages in each)
-  const handleApplyToAllPdfs = useCallback((templateHighlights: Highlight[]) => {
+  // Mirror the active session's highlights (page-for-page) to all other PDFs
+  const handleApplyToAllPdfs = useCallback((sourceHighlights: Record<number, Highlight[]>) => {
     setSessions(prev => prev.map(s => {
-      // Skip sessions that aren't ready
+      if (s.id === activeTabId) return s; // skip the source session
       if (s.status !== 'ready' && s.status !== 'extracted') return s;
-      const totalPgs = s.total_pages || s.pages.length;
       const next: Record<number, Highlight[]> = {};
-      for (let p = 1; p <= totalPgs; p++) {
-        next[p] = templateHighlights.map(h => ({
+      for (const [pageStr, pageHls] of Object.entries(sourceHighlights)) {
+        const pageNum = Number(pageStr);
+        // Only copy if target PDF has that page
+        const totalPgs = s.total_pages || s.pages.length;
+        if (pageNum > totalPgs) continue;
+        next[pageNum] = pageHls.map(h => ({
           ...h,
-          id: `hl-${Date.now()}-${s.id.slice(-4)}-${p}-${Math.random().toString(36).slice(2, 6)}`,
-          page: p,
+          id: `hl-${Date.now()}-${s.id.slice(-4)}-${pageNum}-${Math.random().toString(36).slice(2, 6)}`,
+          page: pageNum,
           extractedValue: undefined,
           confidence: undefined,
         }));
       }
       return { ...s, highlights: next, extractedData: [], status: 'ready' as const };
     }));
-    toast.success('Highlights applied to all open PDFs');
-  }, []);
+    toast.success('Highlights mirrored to all open PDFs (matching pages)');
+  }, [activeTabId]);
 
   // Can we show a viewer?
   const hasActiveViewer = activeSession &&
@@ -401,19 +423,22 @@ export default function Index() {
                 />
               </div>
 
-              {showExcel && activeSession.extractedData.length > 0 && (
+              {showExcel && combinedExtractedData.length > 0 && (
                 <div className="w-2/5 border-l border-gray-200">
                   <ExcelPanel
-                    data={activeSession.extractedData}
-                    filename={activeSession.filename}
+                    data={combinedExtractedData}
+                    filename={sessions.filter(s => s.extractedData.length > 0).map(s => s.filename).join(', ')}
                     provider={DOCUMENT_TYPES.find(d => d.value === activeSession.docType)?.label ?? 'Document'}
                     onClose={() => setShowExcel(false)}
                     onReExtract={handleExtract}
-                    onDataChange={(d: ExtractedRow[]) =>
-                      setSessions(prev =>
-                        prev.map(s => s.id === activeSession.id ? { ...s, extractedData: d } : s)
-                      )
-                    }
+                    onDataChange={(d: ExtractedRow[]) => {
+                      // Distribute edited rows back to their sessions
+                      setSessions(prev => prev.map(s => ({
+                        ...s,
+                        extractedData: d.filter(r => r.sessionId === s.id),
+                      })));
+                    }}
+                    multiFile={sessions.filter(s => s.extractedData.length > 0).length > 1}
                   />
                 </div>
               )}

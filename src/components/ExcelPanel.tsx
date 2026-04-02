@@ -14,11 +14,12 @@ interface Props {
   onClose: () => void;
   onReExtract: () => void;
   onDataChange: (data: ExtractedRow[]) => void;
+  multiFile?: boolean;
 }
 
 const CONF_PCT: Record<string, number> = { high: 95, medium: 65, low: 25 };
 
-export default function ExcelPanel({ data, filename, provider, onClose, onReExtract, onDataChange }: Props) {
+export default function ExcelPanel({ data, filename, provider, onClose, onReExtract, onDataChange, multiFile }: Props) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [sortCol, setSortCol]       = useState<string | null>(null);
   const [sortAsc, setSortAsc]       = useState(true);
@@ -90,6 +91,14 @@ export default function ExcelPanel({ data, filename, provider, onClose, onReExtr
 
       {/* ── Column headers ─────────────────────────────────────────────── */}
       <div className="bg-[#1aa347] text-white text-[11px] font-semibold flex shrink-0">
+        {multiFile && (
+          <div
+            className="w-28 shrink-0 px-3 py-2.5 cursor-pointer hover:bg-white/10 select-none transition-colors truncate"
+            onClick={() => handleSort('filename')}
+          >
+            File {sortCol === 'filename' ? (sortAsc ? '↑' : '↓') : ''}
+          </div>
+        )}
         {['Page', 'Field', 'Value'].map(col => (
           <div
             key={col}
@@ -129,6 +138,13 @@ export default function ExcelPanel({ data, filename, provider, onClose, onReExtr
                     ${row.edited ? 'border-l-2 border-l-amber-400' : ''}
                     hover:bg-green-50/40`}
                 >
+                  {/* File (multi-PDF mode) */}
+                  {multiFile && (
+                    <div className="w-28 shrink-0 px-3 py-3 text-gray-400 text-[10px] flex items-center truncate" title={row.filename}>
+                      {row.filename?.replace(/\.pdf$/i, '') ?? ''}
+                    </div>
+                  )}
+
                   {/* Page */}
                   <div className="w-14 shrink-0 px-4 py-3 text-gray-400 font-medium flex items-center">
                     {row.page}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   MousePointer2, Square, Eraser, Loader2,
@@ -46,10 +46,6 @@ export default function ViewerToolbar({
   onApplyToAllPages, onApplyToAllPdfs, onEraseAllPages, onApplyToPageRange,
 }: ViewerToolbarProps) {
 
-  const [rangeOpen, setRangeOpen] = useState(false);
-  const [rangeFrom, setRangeFrom] = useState('');
-  const [rangeTo, setRangeTo]     = useState('');
-
   const toolBtn = (t: ViewerTool, icon: React.ReactNode, label: string) => (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -91,15 +87,6 @@ export default function ViewerToolbar({
       <TooltipContent side="bottom" className="max-w-[200px] text-xs">{label}</TooltipContent>
     </Tooltip>
   );
-
-  const handleRangeSubmit = () => {
-    const from = parseInt(rangeFrom) || 1;
-    const to   = parseInt(rangeTo)   || totalPages;
-    onApplyToPageRange(Math.max(1, Math.min(from, totalPages)), Math.max(1, Math.min(to, totalPages)));
-    setRangeOpen(false);
-    setRangeFrom('');
-    setRangeTo('');
-  };
 
   return (
     <div className="h-10 bg-white border-b border-gray-200 flex items-center px-3 gap-2 shrink-0 overflow-x-auto">
@@ -187,7 +174,7 @@ export default function ViewerToolbar({
       <div className="w-px h-5 bg-gray-200 shrink-0" />
 
       {/* Bulk actions */}
-      <div className="flex items-center gap-0.5 shrink-0 relative">
+      <div className="flex items-center gap-0.5 shrink-0">
         {bulkBtn(
           <CopyPlus className="w-4 h-4" />,
           'Copy highlights to all pages in this PDF',
@@ -206,73 +193,11 @@ export default function ViewerToolbar({
           onEraseAllPages,
           !hasHighlights,
         )}
-
-        {/* Page range selector */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100
-                         disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-0.5"
-              onClick={() => setRangeOpen(o => !o)}
-              disabled={!hasHighlightsOnPage}
-              aria-label="Copy highlights to page range"
-            >
-              <ListChecks className="w-4 h-4" />
-              <ChevronDown className="w-2.5 h-2.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Copy highlights to page range</TooltipContent>
-        </Tooltip>
-
-        {rangeOpen && (
-          <div
-            className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-40 w-56"
-            onClick={e => e.stopPropagation()}
-          >
-            <p className="text-xs font-semibold text-gray-600 mb-2">Apply to page range</p>
-            <div className="flex items-center gap-2 mb-2">
-              <Input
-                type="number"
-                min={1}
-                max={totalPages}
-                placeholder="From"
-                className="h-7 text-xs flex-1"
-                value={rangeFrom}
-                onChange={e => setRangeFrom(e.target.value)}
-              />
-              <span className="text-xs text-gray-400">–</span>
-              <Input
-                type="number"
-                min={1}
-                max={totalPages}
-                placeholder="To"
-                className="h-7 text-xs flex-1"
-                value={rangeTo}
-                onChange={e => setRangeTo(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-1.5">
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1 h-7 text-xs"
-                onClick={() => {
-                  setRangeFrom('1');
-                  setRangeTo(String(totalPages));
-                }}
-              >
-                All pages
-              </Button>
-              <Button
-                size="sm"
-                className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
-                onClick={handleRangeSubmit}
-              >
-                Apply
-              </Button>
-            </div>
-          </div>
-        )}
+        <PageRangeButton
+          disabled={!hasHighlightsOnPage}
+          totalPages={totalPages}
+          onApply={onApplyToPageRange}
+        />
       </div>
 
       {/* Spacer */}
@@ -307,5 +232,130 @@ export default function ViewerToolbar({
         Extract
       </Button>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PageRangeButton — uses fixed positioning so it escapes overflow:auto
+// ---------------------------------------------------------------------------
+function PageRangeButton({
+  disabled,
+  totalPages,
+  onApply,
+}: {
+  disabled: boolean;
+  totalPages: number;
+  onApply: (from: number, to: number) => void;
+}) {
+  const [open, setOpen]           = useState(false);
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo]     = useState('');
+  const btnRef  = useRef<HTMLButtonElement>(null);
+  const popRef  = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  // Position the popover below the button using fixed coords
+  useEffect(() => {
+    if (open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, left: r.left });
+    }
+  }, [open]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (popRef.current && !popRef.current.contains(e.target as Node) &&
+          btnRef.current && !btnRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleSubmit = () => {
+    const from = parseInt(rangeFrom) || 1;
+    const to   = parseInt(rangeTo)   || totalPages;
+    onApply(Math.max(1, Math.min(from, totalPages)), Math.max(1, Math.min(to, totalPages)));
+    setOpen(false);
+    setRangeFrom('');
+    setRangeTo('');
+  };
+
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            ref={btnRef}
+            className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100
+                       disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-0.5"
+            onClick={() => setOpen(o => !o)}
+            disabled={disabled}
+            aria-label="Copy highlights to page range"
+          >
+            <ListChecks className="w-4 h-4" />
+            <ChevronDown className="w-2.5 h-2.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Copy highlights to page range</TooltipContent>
+      </Tooltip>
+
+      {open && pos && (
+        <div
+          ref={popRef}
+          className="fixed bg-white border border-gray-200 rounded-lg shadow-xl p-3 z-[100] w-56"
+          style={{ top: pos.top, left: pos.left }}
+        >
+          <p className="text-xs font-semibold text-gray-600 mb-2">Apply to page range</p>
+          <div className="flex items-center gap-2 mb-2">
+            <Input
+              type="number"
+              min={1}
+              max={totalPages}
+              placeholder="From"
+              className="h-7 text-xs flex-1"
+              value={rangeFrom}
+              autoFocus
+              onChange={e => setRangeFrom(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
+            />
+            <span className="text-xs text-gray-400">–</span>
+            <Input
+              type="number"
+              min={1}
+              max={totalPages}
+              placeholder="To"
+              className="h-7 text-xs flex-1"
+              value={rangeTo}
+              onChange={e => setRangeTo(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
+            />
+          </div>
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 h-7 text-xs"
+              onClick={() => {
+                setRangeFrom('1');
+                setRangeTo(String(totalPages));
+              }}
+            >
+              All pages
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
+              onClick={handleSubmit}
+            >
+              Apply
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

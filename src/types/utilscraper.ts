@@ -119,6 +119,8 @@ export interface ExtractedRow {
   confidence: 'high' | 'medium' | 'low';
   wasOcr: boolean;
   edited?: boolean;
+  filename?: string;     // set when combining data from multiple PDFs
+  sessionId?: string;    // which session this row belongs to
 }
 
 export type ViewerTool = 'cursor' | 'highlight' | 'eraser';
