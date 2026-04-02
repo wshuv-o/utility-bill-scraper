@@ -41,15 +41,41 @@ function thinBorder(): any {
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+const FULL_MONTHS = [
+  'january','february','march','april','may','june',
+  'july','august','september','october','november','december',
+];
+
 function parseMonthYear(dateStr: string | null | undefined): { month: number; year: number } | null {
   if (!dateStr) return null;
-  const m1 = dateStr.match(/([A-Za-z]{3})[\s.,]+(\d{1,2})[,\s]+(\d{4})/);
+  const s = dateStr.trim();
+
+  // "Jan 15, 2025" / "Mar. 6 2025" (abbreviated month name)
+  const m1 = s.match(/([A-Za-z]{3,9})[\s.,]+(\d{1,2})[,\s]+(\d{4})/);
   if (m1) {
-    const mi = MONTHS.findIndex(m => m.toLowerCase() === m1[1].toLowerCase());
+    const name = m1[1].toLowerCase();
+    let mi = MONTHS.findIndex(m => m.toLowerCase() === name);
+    if (mi < 0) mi = FULL_MONTHS.findIndex(m => m === name);
     if (mi >= 0) return { month: mi + 1, year: parseInt(m1[3]) };
   }
-  const m2 = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+
+  // MM/DD/YYYY or MM-DD-YYYY or MM.DD.YYYY
+  const m2 = s.match(/(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/);
   if (m2) return { month: parseInt(m2[1]), year: parseInt(m2[3]) };
+
+  // YYYY-MM-DD (ISO format)
+  const m3 = s.match(/(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})/);
+  if (m3) return { month: parseInt(m3[2]), year: parseInt(m3[1]) };
+
+  // "15 January 2025" / "6 Mar 2025" (day before month name)
+  const m4 = s.match(/(\d{1,2})\s+([A-Za-z]{3,9})[,\s]+(\d{4})/);
+  if (m4) {
+    const name = m4[2].toLowerCase();
+    let mi = MONTHS.findIndex(m => m.toLowerCase() === name);
+    if (mi < 0) mi = FULL_MONTHS.findIndex(m => m === name);
+    if (mi >= 0) return { month: mi + 1, year: parseInt(m4[3]) };
+  }
+
   return null;
 }
 

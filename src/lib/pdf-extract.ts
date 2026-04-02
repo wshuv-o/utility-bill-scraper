@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { pdfjs } from 'react-pdf';
 import type { ExtractedRow, FieldLabel, Highlight } from '@/types/utilscraper';
@@ -34,6 +35,7 @@ export async function extractTextFromPdf(file: File): Promise<Map<number, string
 // Provider field extraction patterns (client-side fallback)
 // ---------------------------------------------------------------------------
 interface ProviderPatterns {
+  provider_name: RegExp[];
   property_name: RegExp[];
   account_number: RegExp[];
   address: RegExp[];
@@ -43,10 +45,16 @@ interface ProviderPatterns {
 
 const PROVIDER_PATTERNS: Record<string, ProviderPatterns> = {
   'National Grid Gas': {
+    provider_name: [
+      /(?:provider|utility|company|supplier)[:\s]*([A-Z][A-Za-z\s&.,'-]{2,40})/i,
+      /^([A-Z][A-Z\s&]{2,30}(?:GRID|EDISON|ELECTRIC|GAS|ENERGY|POWER|FUEL|WATER))\b/im,
+      /^([A-Z][A-Z\s&.,'-]{3,40})\s*(?:LLC|INC|CORP|LTD|CO\b)/im,
+    ],
     property_name: [
       /(?:property\s*(?:name)?|customer\s*name|name\s*on\s*account|bill\s*to|service\s*for)[:\s]*([A-Z][A-Za-z\s&.,'-]{2,50})/i,
       /(?:account\s*holder)[:\s]*([A-Z][A-Za-z\s&.,'-]{2,50})/i,
       /^([A-Z][A-Z\s&.,'-]{5,40})\s*(?:LLC|INC|CORP|LTD|CO\b)/im,
+      /(?:property\s*(?:name)?|customer\s*name|bill\s*to)[:\s]*([A-Za-z][A-Za-z\s&.,'-]{2,50})/i,
     ],
     account_number: [
       /(?:account\s*(?:no|number|#|num))[.:\s]*([0-9][0-9\s-]{5,25})/i,
@@ -339,15 +347,12 @@ export async function extractFromRegions(
         continue;
       }
 
-      // Convert normalised highlight coords → PDF point coords.
-      // Expand slightly (0.5% each side) so text at the drawn box boundary
-      // isn't missed — pdfjs only matches items whose position falls inside.
-      const padX = pageWidth  * 0.005;
-      const padY = pageHeight * 0.004;
-      const hlLeft   = Math.max(0,          hl.x * pageWidth             - padX);
-      const hlRight  = Math.min(pageWidth,  (hl.x + hl.width) * pageWidth  + padX);
-      const hlTop    = Math.max(0,          hl.y * pageHeight            - padY);
-      const hlBottom = Math.min(pageHeight, (hl.y + hl.height) * pageHeight + padY);
+      // Exact highlight rect in PDF points — no padding.
+      // Padding was pulling in text from neighboring rows/columns.
+      const hlLeft   = hl.x * pageWidth;
+      const hlRight  = (hl.x + hl.width)  * pageWidth;
+      const hlTop    = hl.y * pageHeight;
+      const hlBottom = (hl.y + hl.height) * pageHeight;
 
       // Collect matched items with their positions
       const matchedItems: { x: number; y: number; str: string }[] = [];
@@ -360,19 +365,20 @@ export async function extractFromRegions(
         const itemX      = item.transform[4];
         const itemH      = item.height || Math.abs(item.transform[3]) || 12;
         const itemW      = item.width  || str.length * 6;
-
         const itemTop    = pageHeight - item.transform[5];
         const itemBottom = itemTop + itemH;
         const itemRight  = itemX + itemW;
 
-        const overlapX = hlRight > itemX && hlLeft < itemRight;
-        // Use CENTER Y of the item for vertical overlap — this prevents
-        // the row above and row below from bleeding into the highlight
-        // even when the highlight box slightly overlaps their edges.
         const itemCenterY = (itemTop + itemBottom) / 2;
-        const inRow = itemCenterY > hlTop && itemCenterY < hlBottom;
 
-        if (overlapX && inRow) {
+        // Row filter: center-Y must be inside highlight (prevents above/below row bleed)
+        const inRow = itemCenterY >= hlTop && itemCenterY <= hlBottom;
+
+        // Column filter: at least 40% of item width must overlap highlight horizontally
+        const xOverlap = Math.min(itemRight, hlRight) - Math.max(itemX, hlLeft);
+        const inCol = itemW > 0 && (xOverlap / itemW) >= 0.4;
+
+        if (inRow && inCol) {
           matchedItems.push({ x: itemX, y: itemTop, str });
         }
       }
