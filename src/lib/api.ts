@@ -2,7 +2,7 @@
 import type { PageInfo, Highlight, ExtractedRow } from '@/types/utilscraper';
 import { extractFromRegions } from './pdf-extract';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000' ;
 
 let backendOnline = false;
 
