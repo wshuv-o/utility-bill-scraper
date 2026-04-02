@@ -4,6 +4,20 @@ import { extractFromRegions } from './pdf-extract';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000' ;
 
+// Strip emoji, dingbats, and decorative symbols from extracted text
+function sanitizeValue(val: string | null | undefined): string | null {
+  if (!val) return val ?? null;
+  const cleaned = val
+    .replace(/[^\p{L}\p{N}\p{P}\p{Z}\p{Sc}\p{Sm}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || null;
+}
+
+function sanitizeResults(results: ExtractedRow[]): ExtractedRow[] {
+  return results.map(r => ({ ...r, value: sanitizeValue(r.value) }));
+}
+
 let backendOnline = false;
 
 async function checkBackend(): Promise<boolean> {
@@ -177,7 +191,7 @@ export async function extractRegions(
 
       if (res.ok) {
         const data = await res.json();
-        return data.results;
+        return sanitizeResults(data.results);
       }
     }
   } catch {
@@ -222,12 +236,12 @@ export async function extractRegions(
           });
           if (res.ok) {
             const data = await res.json();
-            return [...goodResults, ...data.results];
+            return sanitizeResults([...goodResults, ...data.results]);
           }
         } catch { /* backend retry failed, return what we have */ }
       }
 
-      return clientResults;
+      return sanitizeResults(clientResults);
     } catch (err) {
       console.error('Client-side region extraction failed:', err);
     }
