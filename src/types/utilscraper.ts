@@ -1,9 +1,10 @@
-export type DocumentType = 'utility_bill' | 'bank_statement' | 'appraisal';
+export type DocumentType = 'utility_bill' | 'bank_statement' | 'appraisal' | 'lease_contract';
 
 export const DOCUMENT_TYPES: { value: DocumentType; label: string; color: string }[] = [
   { value: 'utility_bill',   label: 'Utility Bill',    color: '#16a34a' },
   { value: 'bank_statement', label: 'Bank Statement',  color: '#2563eb' },
-  { value: 'appraisal',      label: 'Appraisal',       color: '#9333ea' },
+  { value: 'appraisal',       label: 'Appraisal',       color: '#9333ea' },
+  { value: 'lease_contract',  label: 'Lease Contract',  color: '#d97706' },
 ];
 
 export interface PageInfo {
@@ -62,6 +63,18 @@ export type FieldLabel =
   // Appraisal fields
   | 'appraised_date'
   | 'appraised_as_is_value'
+  // Lease contract fields
+  | 'lease_date'
+  | 'parties'
+  | 'lease_begin_date'
+  | 'lease_end_date'
+  | 'security_deposit'
+  | 'rent_and_charges'
+  | 'onetime_concession_amount'
+  | 'onetime_concession_comment'
+  | 'monthly_discount'
+  | 'other_discount'
+  | 'other_discount_comment'
   | 'custom';
 
 export interface FieldLabelOption {
@@ -96,8 +109,20 @@ export const FIELD_LABELS: FieldLabelOption[] = [
   // ── Appraisal fields ──────────────────────────────────────────────
   { value: 'appraised_date',        label: 'Appraised Date',      color: '#7c3aed', bgColor: 'rgba(124,58,237,0.18)',  docTypes: ['appraisal'] },
   { value: 'appraised_as_is_value', label: 'Appraised As-Is Value', color: '#dc2626', bgColor: 'rgba(220,38,38,0.18)', docTypes: ['appraisal'] },
+  // ── Lease contract fields ───────────────────────────────────────────
+  { value: 'lease_date',                label: 'Date of Lease',            color: '#7c3aed', bgColor: 'rgba(124,58,237,0.18)',  docTypes: ['lease_contract'] },
+  { value: 'parties',                   label: 'Parties',                  color: '#1d4ed8', bgColor: 'rgba(29,78,216,0.18)',   docTypes: ['lease_contract'] },
+  { value: 'lease_begin_date',          label: 'Lease Begin Date',         color: '#0891b2', bgColor: 'rgba(8,145,178,0.18)',   docTypes: ['lease_contract'] },
+  { value: 'lease_end_date',            label: 'Lease End Date',           color: '#0284c7', bgColor: 'rgba(2,132,199,0.18)',   docTypes: ['lease_contract'] },
+  { value: 'security_deposit',          label: 'Security Deposit',         color: '#16a34a', bgColor: 'rgba(22,163,74,0.18)',   docTypes: ['lease_contract'] },
+  { value: 'rent_and_charges',          label: 'Rent & Charges',           color: '#dc2626', bgColor: 'rgba(220,38,38,0.18)',   docTypes: ['lease_contract'] },
+  { value: 'onetime_concession_amount', label: 'One-Time Concession $',    color: '#d97706', bgColor: 'rgba(217,119,6,0.18)',   docTypes: ['lease_contract'] },
+  { value: 'onetime_concession_comment',label: 'One-Time Concession Note', color: '#9333ea', bgColor: 'rgba(147,51,234,0.18)', docTypes: ['lease_contract'] },
+  { value: 'monthly_discount',          label: 'Monthly Discount $',       color: '#0ea5e9', bgColor: 'rgba(14,165,233,0.18)',  docTypes: ['lease_contract'] },
+  { value: 'other_discount',            label: 'Other Discount $',         color: '#0d9488', bgColor: 'rgba(13,148,136,0.18)',  docTypes: ['lease_contract'] },
+  { value: 'other_discount_comment',    label: 'Other Discount Comment',   color: '#65a30d', bgColor: 'rgba(101,163,13,0.18)', docTypes: ['lease_contract'] },
   // ── Fallback ──────────────────────────────────────────────────────
-  { value: 'custom',                label: 'Custom',              color: '#64748b', bgColor: 'rgba(100,116,139,0.18)', docTypes: ['utility_bill', 'bank_statement', 'appraisal'] },
+  { value: 'custom',                label: 'Custom',              color: '#64748b', bgColor: 'rgba(100,116,139,0.18)', docTypes: ['utility_bill', 'bank_statement', 'appraisal', 'lease_contract'] },
 ];
 
 // Returns only the field labels relevant to a document type
