@@ -397,7 +397,7 @@ export async function extractFromRegions(
       const value = rawJoined
         .replace(/\(\d+\)/g, '')   // strip (numeric) groups
         .replace(/[()]/g, '')       // strip any lone brackets
-        //.replace(/[^\p{L}\p{N}\p{P}\p{Z}\p{Sc}\p{Sm}]/gu, '') // strip emoji & decorative symbols, keep letters/numbers/punctuation/spaces/currency/math
+        .replace(/[^\p{L}\p{N}\p{P}\p{Z}\p{Sc}\p{Sm}]/gu, '') // strip emoji & decorative symbols, keep letters/numbers/punctuation/spaces/currency/math
         .replace(/\s+/g, ' ')
         .trim() || null;
 
