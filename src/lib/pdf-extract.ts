@@ -1,4 +1,3 @@
-/* eslint-disable no-useless-escape */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { pdfjs } from 'react-pdf';
 import type { ExtractedRow, FieldLabel, Highlight } from '@/types/utilscraper';
@@ -366,10 +365,14 @@ export async function extractFromRegions(
         const itemBottom = itemTop + itemH;
         const itemRight  = itemX + itemW;
 
-        const overlapX = hlRight  > itemX    && hlLeft  < itemRight;
-        const overlapY = hlBottom > itemTop  && hlTop   < itemBottom;
+        const overlapX = hlRight > itemX && hlLeft < itemRight;
+        // Use CENTER Y of the item for vertical overlap — this prevents
+        // the row above and row below from bleeding into the highlight
+        // even when the highlight box slightly overlaps their edges.
+        const itemCenterY = (itemTop + itemBottom) / 2;
+        const inRow = itemCenterY > hlTop && itemCenterY < hlBottom;
 
-        if (overlapX && overlapY) {
+        if (overlapX && inRow) {
           matchedItems.push({ x: itemX, y: itemTop, str });
         }
       }
@@ -382,7 +385,14 @@ export async function extractFromRegions(
         return a.x - b.x;
       });
 
-      const value = matchedItems.map(i => i.str).join(' ').replace(/\s+/g, ' ').trim() || null;
+      // Join tokens in reading order, then strip parenthetical reference numbers
+      // e.g. "(0023051011425) 8303 32 009" → "8303 32 009"
+      const rawJoined = matchedItems.map(i => i.str).join(' ');
+      const value = rawJoined
+        .replace(/\(\d+\)/g, '')   // strip (numeric) groups
+        .replace(/[()]/g, '')       // strip any lone brackets
+        .replace(/\s+/g, ' ')
+        .trim() || null;
 
       results.push({
         page:       hl.page,
