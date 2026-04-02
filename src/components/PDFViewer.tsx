@@ -15,6 +15,7 @@ interface PDFViewerProps {
   onHighlightsChange: (sessionId: string, highlights: Record<number, Highlight[]>) => void;
   onExtract: () => void;
   onReExtract: (highlightId: string) => void;
+  onApplyToAllPdfs: (templateHighlights: Highlight[]) => void;
   extracting: boolean;
 }
 
@@ -23,6 +24,7 @@ export default function PDFViewer({
   onHighlightsChange,
   onExtract,
   onReExtract,
+  onApplyToAllPdfs,
   extracting,
 }: PDFViewerProps) {
   const [currentPage, setCurrentPage]   = useState(1);
@@ -225,6 +227,54 @@ export default function PDFViewer({
     [handleEraseAll],
   );
 
+  // -----------------------------------------------------------------------
+  // Bulk highlight actions
+  // -----------------------------------------------------------------------
+  // Clone current page's highlights to every page in this PDF
+  const handleApplyToAllPages = useCallback(() => {
+    if (pageHighlights.length === 0) return;
+    const next = { ...session.highlights };
+    for (let p = 1; p <= totalPages; p++) {
+      if (p === currentPage) continue;
+      next[p] = pageHighlights.map(h => ({
+        ...h,
+        id: `hl-${Date.now()}-${p}-${Math.random().toString(36).slice(2, 6)}`,
+        page: p,
+        extractedValue: undefined,
+        confidence: undefined,
+      }));
+    }
+    onHighlightsChange(session.id, next);
+  }, [pageHighlights, session, totalPages, currentPage, onHighlightsChange]);
+
+  // Clone current page's highlights to a specific page range
+  const handleApplyToPageRange = useCallback((from: number, to: number) => {
+    if (pageHighlights.length === 0) return;
+    const next = { ...session.highlights };
+    for (let p = from; p <= to; p++) {
+      if (p === currentPage) continue;
+      next[p] = pageHighlights.map(h => ({
+        ...h,
+        id: `hl-${Date.now()}-${p}-${Math.random().toString(36).slice(2, 6)}`,
+        page: p,
+        extractedValue: undefined,
+        confidence: undefined,
+      }));
+    }
+    onHighlightsChange(session.id, next);
+  }, [pageHighlights, session, currentPage, onHighlightsChange]);
+
+  // Erase highlights from ALL pages in this PDF
+  const handleEraseAllPages = useCallback(() => {
+    onHighlightsChange(session.id, {});
+  }, [session.id, onHighlightsChange]);
+
+  // Send current page highlights up to Index for cross-PDF application
+  const handleApplyToAllPdfs = useCallback(() => {
+    if (pageHighlights.length === 0) return;
+    onApplyToAllPdfs(pageHighlights);
+  }, [pageHighlights, onApplyToAllPdfs]);
+
   // Close picker on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -253,8 +303,8 @@ export default function PDFViewer({
         zoom={zoom ?? 1}
         tool={tool}
         isOcr={currentPageInfo?.is_ocr ?? false}
+        hasHighlightsOnPage={pageHighlights.length > 0}
         onPageChange={(p) => {
-          // Clamp page number to valid range
           setCurrentPage(Math.max(1, Math.min(p, totalPages)));
         }}
         onZoomChange={setZoom}
@@ -262,6 +312,10 @@ export default function PDFViewer({
         onExtract={onExtract}
         extracting={extracting}
         hasHighlights={allHighlights.length > 0}
+        onApplyToAllPages={handleApplyToAllPages}
+        onApplyToAllPdfs={handleApplyToAllPdfs}
+        onEraseAllPages={handleEraseAllPages}
+        onApplyToPageRange={handleApplyToPageRange}
       />
 
       <div ref={scrollRef} className="flex-1 overflow-auto bg-[#525659] relative custom-scrollbar pr-6">

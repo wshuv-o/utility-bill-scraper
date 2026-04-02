@@ -194,6 +194,27 @@ export default function Index() {
     setExtracting(false);
   }, [activeSession]);
 
+  // Apply template highlights to ALL open PDFs (all pages in each)
+  const handleApplyToAllPdfs = useCallback((templateHighlights: Highlight[]) => {
+    setSessions(prev => prev.map(s => {
+      // Skip sessions that aren't ready
+      if (s.status !== 'ready' && s.status !== 'extracted') return s;
+      const totalPgs = s.total_pages || s.pages.length;
+      const next: Record<number, Highlight[]> = {};
+      for (let p = 1; p <= totalPgs; p++) {
+        next[p] = templateHighlights.map(h => ({
+          ...h,
+          id: `hl-${Date.now()}-${s.id.slice(-4)}-${p}-${Math.random().toString(36).slice(2, 6)}`,
+          page: p,
+          extractedValue: undefined,
+          confidence: undefined,
+        }));
+      }
+      return { ...s, highlights: next, extractedData: [], status: 'ready' as const };
+    }));
+    toast.success('Highlights applied to all open PDFs');
+  }, []);
+
   // Can we show a viewer?
   const hasActiveViewer = activeSession &&
     activeSession.status !== 'uploading' &&
@@ -375,6 +396,7 @@ export default function Index() {
                   onHighlightsChange={handleHighlightsChange}
                   onExtract={handleExtract}
                   onReExtract={handleReExtractHighlight}
+                  onApplyToAllPdfs={handleApplyToAllPdfs}
                   extracting={extracting}
                 />
               </div>

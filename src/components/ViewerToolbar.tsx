@@ -1,7 +1,13 @@
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, MousePointer2, Square, Eraser, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import {
+  ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
+  MousePointer2, Square, Eraser, Loader2,
+  CopyPlus, Files, Trash2, ListChecks, ChevronDown,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
 import type { ViewerTool } from '@/types/utilscraper';
 
 interface ViewerToolbarProps {
@@ -10,12 +16,18 @@ interface ViewerToolbarProps {
   zoom: number;
   tool: ViewerTool;
   isOcr: boolean;
+  hasHighlightsOnPage: boolean;
   onPageChange: (p: number) => void;
   onZoomChange: (z: number) => void;
   onToolChange: (t: ViewerTool) => void;
   onExtract: () => void;
   extracting: boolean;
   hasHighlights: boolean;
+  // Bulk actions
+  onApplyToAllPages: () => void;
+  onApplyToAllPdfs: () => void;
+  onEraseAllPages: () => void;
+  onApplyToPageRange: (from: number, to: number) => void;
 }
 
 const ZOOM_OPTIONS = [
@@ -28,10 +40,15 @@ const ZOOM_OPTIONS = [
 ];
 
 export default function ViewerToolbar({
-  currentPage, totalPages, zoom, tool, isOcr,
+  currentPage, totalPages, zoom, tool, isOcr, hasHighlightsOnPage,
   onPageChange, onZoomChange, onToolChange,
   onExtract, extracting, hasHighlights,
+  onApplyToAllPages, onApplyToAllPdfs, onEraseAllPages, onApplyToPageRange,
 }: ViewerToolbarProps) {
+
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo]     = useState('');
 
   const toolBtn = (t: ViewerTool, icon: React.ReactNode, label: string) => (
     <Tooltip>
@@ -52,6 +69,37 @@ export default function ViewerToolbar({
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   );
+
+  const bulkBtn = (
+    icon: React.ReactNode,
+    label: string,
+    onClick: () => void,
+    disabled = false,
+  ) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100
+                     disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          onClick={onClick}
+          disabled={disabled}
+          aria-label={label}
+        >
+          {icon}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-[200px] text-xs">{label}</TooltipContent>
+    </Tooltip>
+  );
+
+  const handleRangeSubmit = () => {
+    const from = parseInt(rangeFrom) || 1;
+    const to   = parseInt(rangeTo)   || totalPages;
+    onApplyToPageRange(Math.max(1, Math.min(from, totalPages)), Math.max(1, Math.min(to, totalPages)));
+    setRangeOpen(false);
+    setRangeFrom('');
+    setRangeTo('');
+  };
 
   return (
     <div className="h-10 bg-white border-b border-gray-200 flex items-center px-3 gap-2 shrink-0 overflow-x-auto">
@@ -135,6 +183,98 @@ export default function ViewerToolbar({
         {toolBtn('eraser',    <Eraser        className="w-4 h-4" />, 'Erase all on this page')}
       </div>
 
+      {/* Separator */}
+      <div className="w-px h-5 bg-gray-200 shrink-0" />
+
+      {/* Bulk actions */}
+      <div className="flex items-center gap-0.5 shrink-0 relative">
+        {bulkBtn(
+          <CopyPlus className="w-4 h-4" />,
+          'Copy highlights to all pages in this PDF',
+          onApplyToAllPages,
+          !hasHighlightsOnPage,
+        )}
+        {bulkBtn(
+          <Files className="w-4 h-4" />,
+          'Copy highlights to all open PDFs',
+          onApplyToAllPdfs,
+          !hasHighlightsOnPage,
+        )}
+        {bulkBtn(
+          <Trash2 className="w-4 h-4" />,
+          'Erase highlights from all pages in this PDF',
+          onEraseAllPages,
+          !hasHighlights,
+        )}
+
+        {/* Page range selector */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100
+                         disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-0.5"
+              onClick={() => setRangeOpen(o => !o)}
+              disabled={!hasHighlightsOnPage}
+              aria-label="Copy highlights to page range"
+            >
+              <ListChecks className="w-4 h-4" />
+              <ChevronDown className="w-2.5 h-2.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Copy highlights to page range</TooltipContent>
+        </Tooltip>
+
+        {rangeOpen && (
+          <div
+            className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-40 w-56"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-xs font-semibold text-gray-600 mb-2">Apply to page range</p>
+            <div className="flex items-center gap-2 mb-2">
+              <Input
+                type="number"
+                min={1}
+                max={totalPages}
+                placeholder="From"
+                className="h-7 text-xs flex-1"
+                value={rangeFrom}
+                onChange={e => setRangeFrom(e.target.value)}
+              />
+              <span className="text-xs text-gray-400">–</span>
+              <Input
+                type="number"
+                min={1}
+                max={totalPages}
+                placeholder="To"
+                className="h-7 text-xs flex-1"
+                value={rangeTo}
+                onChange={e => setRangeTo(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 h-7 text-xs"
+                onClick={() => {
+                  setRangeFrom('1');
+                  setRangeTo(String(totalPages));
+                }}
+              >
+                All pages
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleRangeSubmit}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Spacer */}
       <div className="flex-1" />
 
@@ -143,7 +283,7 @@ export default function ViewerToolbar({
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium cursor-default shrink-0">
-              🔍 OCR Processed
+              OCR Processed
             </span>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-[200px] text-xs">
@@ -152,7 +292,7 @@ export default function ViewerToolbar({
         </Tooltip>
       ) : (
         <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 cursor-default shrink-0">
-          📄 Native Text
+          Native Text
         </span>
       )}
 
