@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
   FileText, Upload, ChevronLeft, ChevronRight,
-  AlertTriangle, FileSearch,
+  AlertTriangle, FileSearch, X,
 } from 'lucide-react';
 import UploadZone from '@/components/UploadZone';
 import PDFCardList from '@/components/PDFCardList';
@@ -11,11 +11,13 @@ import ProcessingModal from '@/components/ProcessingModal';
 import PDFViewer from '@/components/PDFViewer';
 import ExcelPanel from '@/components/ExcelPanel';
 import type { PDFSession, Highlight, ExtractedRow, DocumentType } from '@/types/utilscraper';
+import { DOCUMENT_TYPES } from '@/types/utilscraper';
 import { processFile, extractRegions } from '@/lib/api';
 
 export default function Index() {
   const [sessions, setSessions]                 = useState<PDFSession[]>([]);
-  const [expandedId, setExpandedId]             = useState<string | null>(null);
+  const [openTabs, setOpenTabs]                 = useState<string[]>([]);
+  const [activeTabId, setActiveTabId]           = useState<string | null>(null);
   const [pendingFiles, setPendingFiles]         = useState<File[]>([]);
   const [processing, setProcessing]             = useState(false);
   const [modalOpen, setModalOpen]               = useState(false);
@@ -27,8 +29,33 @@ export default function Index() {
   const [navCollapsed, setNavCollapsed]         = useState(false);
   const [pendingDocType, setPendingDocType]     = useState<DocumentType>('utility_bill');
 
-  const expandedSession = sessions.find(s => s.id === expandedId);
-  const hasUploaded     = sessions.length > 0 || pendingFiles.length > 0;
+  const activeSession = sessions.find(s => s.id === activeTabId);
+  const hasUploaded   = sessions.length > 0 || pendingFiles.length > 0;
+
+  // Tab sessions in order, resolved from IDs
+  const tabSessions = useMemo(
+    () => openTabs.map(id => sessions.find(s => s.id === id)).filter(Boolean) as PDFSession[],
+    [openTabs, sessions],
+  );
+
+  // Open a tab (add if not already open) and make it active
+  const openTab = useCallback((id: string) => {
+    setOpenTabs(prev => prev.includes(id) ? prev : [...prev, id]);
+    setActiveTabId(id);
+  }, []);
+
+  // Close a tab; if it was active, switch to the nearest neighbour
+  const closeTab = useCallback((id: string) => {
+    setOpenTabs(prev => {
+      const next = prev.filter(t => t !== id);
+      if (activeTabId === id) {
+        const idx = prev.indexOf(id);
+        const neighbour = next[Math.min(idx, next.length - 1)] ?? null;
+        setActiveTabId(neighbour);
+      }
+      return next;
+    });
+  }, [activeTabId]);
 
   const clearSessionCache = useCallback((sessionId: string) => {
     setSessions(prev =>
@@ -45,6 +72,7 @@ export default function Index() {
   const handleProcess = useCallback(async () => {
     if (!pendingFiles.length) return;
     setProcessing(true);
+    const newSessionIds: string[] = [];
     for (const file of pendingFiles) {
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       setSessions(prev => [...prev, {
@@ -59,32 +87,48 @@ export default function Index() {
           setModalStep(step); setModalDetail(detail || '');
         });
         const ocrCount = result.pages.filter(p => p.is_ocr).length;
+        // Update temp session with real ID
         setSessions(prev => prev.map(s => s.id === tempId
           ? { ...s, id: result.session_id, total_pages: result.total_pages, pages: result.pages, status: 'ready' as const } : s
         ));
-        setExpandedId(result.session_id);
+        // Also fix any tab that was opened with the tempId
+        setOpenTabs(prev => prev.map(t => t === tempId ? result.session_id : t));
+        if (activeTabId === tempId) setActiveTabId(result.session_id);
+        newSessionIds.push(result.session_id);
         setModalOpen(false);
         toast.success(`PDF ready — ${ocrCount > 0 ? `${ocrCount} pages OCR'd` : 'all native text'}`);
         if (ocrCount > 0) toast('Draw boxes over the values you want, then click Extract', { duration: 5000, icon: 'ℹ️' });
       } catch (err: any) {
         setModalOpen(false);
         setSessions(prev => prev.filter(s => s.id !== tempId));
+        setOpenTabs(prev => prev.filter(t => t !== tempId));
         toast.error(`Processing failed: ${err.message || 'Unknown error'}`);
         if (err.message?.includes('fetch') || err.message?.includes('network')) setBackendDown(true);
       }
     }
+    // Open all processed files as tabs, activate the first one
+    if (newSessionIds.length > 0) {
+      setOpenTabs(prev => {
+        const merged = [...prev];
+        for (const id of newSessionIds) {
+          if (!merged.includes(id)) merged.push(id);
+        }
+        return merged;
+      });
+      setActiveTabId(newSessionIds[0]);
+    }
     setPendingFiles([]); setProcessing(false);
-  }, [pendingFiles, pendingDocType]);
+  }, [pendingFiles, pendingDocType, activeTabId]);
 
   const handleHighlightsChange = useCallback((sessionId: string, highlights: Record<number, Highlight[]>) => {
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, highlights } : s));
   }, []);
 
   const handleExtract = useCallback(async () => {
-    if (!expandedSession?.file) { toast.error('PDF file not found. Please re-upload.'); return; }
-    const allHighlights = Object.values(expandedSession.highlights).flat();
+    if (!activeSession?.file) { toast.error('PDF file not found. Please re-upload.'); return; }
+    const allHighlights = Object.values(activeSession.highlights).flat();
     if (!allHighlights.length) { toast('Draw highlight boxes first', { icon: 'ℹ️' }); return; }
-    clearSessionCache(expandedSession.id);
+    clearSessionCache(activeSession.id);
     setExtracting(true);
     try {
       const needsExtraction = allHighlights.filter(
@@ -92,8 +136,8 @@ export default function Index() {
       );
       let results: ExtractedRow[] = [];
       if (needsExtraction.length > 0)
-        results = await extractRegions(expandedSession.id, needsExtraction, expandedSession.file);
-      const newHighlights = { ...expandedSession.highlights };
+        results = await extractRegions(activeSession.id, needsExtraction, activeSession.file);
+      const newHighlights = { ...activeSession.highlights };
       let idx = 0;
       for (const [pageNum, pageHls] of Object.entries(newHighlights)) {
         newHighlights[Number(pageNum)] = pageHls.map(h => {
@@ -106,7 +150,7 @@ export default function Index() {
       const allResults: ExtractedRow[] = Object.values(newHighlights).flat()
         .filter(h => h.extractedValue !== undefined)
         .map(h => ({ page: h.page, field: h.field, value: h.extractedValue ?? null, confidence: h.confidence ?? 'low', wasOcr: h.wasOcr ?? false }));
-      setSessions(prev => prev.map(s => s.id === expandedSession.id
+      setSessions(prev => prev.map(s => s.id === activeSession.id
         ? { ...s, highlights: newHighlights, extractedData: allResults, status: 'extracted' as const } : s));
       setShowExcel(true);
       const nullCount = allResults.filter(r => !r.value).length;
@@ -114,11 +158,11 @@ export default function Index() {
       if (nullCount > 0) toast.warning(`${nullCount} field${nullCount !== 1 ? 's' : ''} returned empty`);
     } catch (err: any) { toast.error(`Extraction failed: ${err.message}`); }
     setExtracting(false);
-  }, [expandedSession, clearSessionCache]);
+  }, [activeSession, clearSessionCache]);
 
   const handleReExtractHighlight = useCallback(async (highlightId: string) => {
-    if (!expandedSession?.file) return;
-    const newHighlights = { ...expandedSession.highlights };
+    if (!activeSession?.file) return;
+    const newHighlights = { ...activeSession.highlights };
     let found: Highlight | null = null;
     for (const [pageNum, pageHls] of Object.entries(newHighlights)) {
       newHighlights[Number(pageNum)] = pageHls.map(h => {
@@ -127,14 +171,14 @@ export default function Index() {
       });
     }
     if (!found) return;
-    setSessions(prev => prev.map(s => s.id === expandedSession.id ? { ...s, highlights: newHighlights } : s));
+    setSessions(prev => prev.map(s => s.id === activeSession.id ? { ...s, highlights: newHighlights } : s));
     setExtracting(true);
     try {
-      const results = await extractRegions(expandedSession.id, [found], expandedSession.file);
+      const results = await extractRegions(activeSession.id, [found], activeSession.file);
       const result = results[0];
       if (!result) return;
       setSessions(prev => prev.map(s => {
-        if (s.id !== expandedSession.id) return s;
+        if (s.id !== activeSession.id) return s;
         const hls = { ...s.highlights };
         for (const [pageNum, pageHls] of Object.entries(hls))
           hls[Number(pageNum)] = pageHls.map(h => h.id === highlightId
@@ -148,7 +192,12 @@ export default function Index() {
       else toast.warning('Re-extraction returned empty');
     } catch (err: any) { toast.error(`Re-extraction failed: ${err.message}`); }
     setExtracting(false);
-  }, [expandedSession]);
+  }, [activeSession]);
+
+  // Can we show a viewer?
+  const hasActiveViewer = activeSession &&
+    activeSession.status !== 'uploading' &&
+    activeSession.status !== 'processing';
 
   return (
     <div className="h-screen flex bg-[#f4f6f8]">
@@ -172,7 +221,7 @@ export default function Index() {
             <div className="flex flex-col items-center gap-2 py-4">
               <button
                 className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center text-green-600"
-                title="Upload PDF Bills"
+                title="Upload PDFs"
                 onClick={() => setNavCollapsed(false)}
               >
                 <Upload className="w-4 h-4" />
@@ -194,7 +243,7 @@ export default function Index() {
               <div>
                 <div className="flex items-center gap-2 mb-2.5">
                   <Upload className="w-3.5 h-3.5 text-green-600" />
-                  <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Upload PDF Bills</h2>
+                  <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Upload PDFs</h2>
                 </div>
                 <UploadZone
                   compact={hasUploaded}
@@ -213,8 +262,8 @@ export default function Index() {
                 <div className="bg-green-50 border border-green-200 rounded-xl p-3">
                   <p className="text-[11px] font-semibold text-green-700 mb-1.5">How it works</p>
                   <ol className="text-[11px] text-green-700 space-y-1 list-decimal list-inside leading-relaxed">
-                    <li>Upload utility bill PDFs</li>
-                    <li>Click a PDF to open it</li>
+                    <li>Choose document type</li>
+                    <li>Upload PDF files</li>
                     <li>Draw boxes over the values</li>
                     <li>Label each box with field type</li>
                     <li>Click <strong>Extract</strong></li>
@@ -233,8 +282,8 @@ export default function Index() {
                   </div>
                   <PDFCardList
                     sessions={sessions}
-                    expandedId={expandedId}
-                    onToggle={id => setExpandedId(expandedId === id ? null : id)}
+                    expandedId={activeTabId}
+                    onToggle={openTab}
                   />
                 </div>
               )}
@@ -275,26 +324,54 @@ export default function Index() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
 
-          {/* PDF viewer + Excel panel */}
-          {expandedId && expandedSession &&
-            expandedSession.status !== 'uploading' &&
-            expandedSession.status !== 'processing' ? (
+          {/* ── Tab bar ──────────────────────────────────────────────── */}
+          {tabSessions.length > 0 && (
+            <div className="bg-[#e8eaed] flex items-end overflow-x-auto shrink-0 px-1 pt-1 gap-px">
+              {tabSessions.map(s => {
+                const isActive = s.id === activeTabId;
+                const dt = DOCUMENT_TYPES.find(d => d.value === s.docType);
+                return (
+                  <div
+                    key={s.id}
+                    className={`group flex items-center gap-1.5 pl-3 pr-1 py-1.5 rounded-t-lg text-xs cursor-pointer
+                      max-w-[200px] min-w-[100px] select-none transition-colors
+                      ${isActive
+                        ? 'bg-white text-gray-800 font-medium'
+                        : 'bg-[#dcdfe3] text-gray-500 hover:bg-[#d3d6da]'
+                      }`}
+                    onClick={() => setActiveTabId(s.id)}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: dt?.color ?? '#64748b' }}
+                    />
+                    <span className="truncate flex-1">{s.filename}</span>
+                    <button
+                      className={`p-0.5 rounded transition-colors shrink-0
+                        ${isActive
+                          ? 'hover:bg-gray-200 text-gray-400 hover:text-gray-600'
+                          : 'opacity-0 group-hover:opacity-100 hover:bg-gray-300 text-gray-400 hover:text-gray-600'
+                        }`}
+                      onClick={e => { e.stopPropagation(); closeTab(s.id); }}
+                      title="Close tab"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── Viewer + Excel panel ─────────────────────────────────── */}
+          {hasActiveViewer ? (
             <div className="flex-1 flex overflow-hidden">
               <div className={`${showExcel ? 'w-3/5' : 'w-full'} transition-all flex flex-col overflow-hidden`}>
-                {/* Viewer filename bar */}
-                <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-2 shrink-0">
-                  <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-                  <span className="text-sm font-medium text-gray-700 truncate">{expandedSession.filename}</span>
-                  {expandedSession.pages.some(p => p.is_ocr) && (
-                    <span className="ml-auto text-[11px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium shrink-0">
-                      {expandedSession.pages.filter(p => p.is_ocr).length} pages OCR'd
-                    </span>
-                  )}
-                </div>
                 <PDFViewer
-                  session={expandedSession}
+                  key={activeSession.id}
+                  session={activeSession}
                   onHighlightsChange={handleHighlightsChange}
                   onExtract={handleExtract}
                   onReExtract={handleReExtractHighlight}
@@ -302,17 +379,17 @@ export default function Index() {
                 />
               </div>
 
-              {showExcel && expandedSession.extractedData.length > 0 && (
+              {showExcel && activeSession.extractedData.length > 0 && (
                 <div className="w-2/5 border-l border-gray-200">
                   <ExcelPanel
-                    data={expandedSession.extractedData}
-                    filename={expandedSession.filename}
-                    provider="Utility Bill"
+                    data={activeSession.extractedData}
+                    filename={activeSession.filename}
+                    provider={DOCUMENT_TYPES.find(d => d.value === activeSession.docType)?.label ?? 'Document'}
                     onClose={() => setShowExcel(false)}
                     onReExtract={handleExtract}
                     onDataChange={(d: ExtractedRow[]) =>
                       setSessions(prev =>
-                        prev.map(s => s.id === expandedSession.id ? { ...s, extractedData: d } : s)
+                        prev.map(s => s.id === activeSession.id ? { ...s, extractedData: d } : s)
                       )
                     }
                   />
@@ -327,7 +404,7 @@ export default function Index() {
                   <FileSearch className="w-8 h-8 text-green-400" />
                 </div>
                 <p className="text-sm font-semibold text-gray-600">
-                  {hasUploaded ? 'Select a PDF from the sidebar to view' : 'Upload a utility bill PDF to get started'}
+                  {hasUploaded ? 'Select a PDF from the sidebar to view' : 'Upload a PDF to get started'}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   {hasUploaded ? 'Click any file on the left' : 'Use the upload panel on the left'}

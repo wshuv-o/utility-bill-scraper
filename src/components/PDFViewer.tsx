@@ -26,7 +26,7 @@ export default function PDFViewer({
   extracting,
 }: PDFViewerProps) {
   const [currentPage, setCurrentPage]   = useState(1);
-  const [zoom, setZoom]                 = useState(1.0);
+  const [zoom, setZoom]                 = useState<number | null>(null); // null = not yet computed
   const [tool, setTool]                 = useState<ViewerTool>('cursor');
   const [drawing, setDrawing]           = useState<{
     startX: number; startY: number;
@@ -39,8 +39,10 @@ export default function PDFViewer({
   const [showFirstHint, setShowFirstHint] = useState(true);
   const [numPages, setNumPages]         = useState<number | null>(null);
   const [fileUrl, setFileUrl]           = useState<string | null>(null);
+  const [pdfPageWidth, setPdfPageWidth] = useState<number | null>(null);
 
   const pageRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const totalPages = numPages ?? session.total_pages;
 
@@ -70,6 +72,17 @@ export default function PDFViewer({
     setFileUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [session.file]);
+
+  // Compute fit-width zoom once we know the PDF's intrinsic page width
+  // and the scroll container width
+  useEffect(() => {
+    if (pdfPageWidth && scrollRef.current && zoom === null) {
+      // Subtract padding (p-6 = 24px each side) + pr-12 (48px right) + pr-6 (24px scrollbar)
+      const available = scrollRef.current.clientWidth - 24 - 48 - 24;
+      const fitZoom = Math.max(0.3, Math.min(2.5, available / pdfPageWidth));
+      setZoom(parseFloat(fitZoom.toFixed(2)));
+    }
+  }, [pdfPageWidth, zoom]);
 
   // Clear drawing + picker when page changes
   useEffect(() => {
@@ -237,7 +250,7 @@ export default function PDFViewer({
       <ViewerToolbar
         currentPage={currentPage}
         totalPages={totalPages}
-        zoom={zoom}
+        zoom={zoom ?? 1}
         tool={tool}
         isOcr={currentPageInfo?.is_ocr ?? false}
         onPageChange={(p) => {
@@ -251,7 +264,7 @@ export default function PDFViewer({
         hasHighlights={allHighlights.length > 0}
       />
 
-      <div className="flex-1 overflow-auto bg-[#525659] relative custom-scrollbar pr-6">
+      <div ref={scrollRef} className="flex-1 overflow-auto bg-[#525659] relative custom-scrollbar pr-6">
         {/* First-use hint overlay */}
         {showFirstHint && tool === 'highlight' && allHighlights.length === 0 && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
@@ -279,7 +292,17 @@ export default function PDFViewer({
           >
             <Document
               file={fileUrl}
-              onLoadSuccess={(pdf) => setNumPages(pdf.numPages)}
+              onLoadSuccess={async (pdf) => {
+                setNumPages(pdf.numPages);
+                // Read intrinsic width of page 1 to compute fit-width zoom
+                if (!pdfPageWidth) {
+                  try {
+                    const page = await pdf.getPage(1);
+                    const vp = page.getViewport({ scale: 1 });
+                    setPdfPageWidth(vp.width);
+                  } catch { /* ignore */ }
+                }
+              }}
               loading={
                 <div className="w-[600px] h-[800px] bg-white/10 animate-pulse rounded" />
               }
@@ -291,7 +314,7 @@ export default function PDFViewer({
             >
               <Page
                 pageNumber={currentPage}
-                scale={zoom}
+                scale={zoom ?? 1}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
               />
