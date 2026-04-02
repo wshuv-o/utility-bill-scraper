@@ -89,7 +89,7 @@ export default function ExcelPanel({ data, filename, provider, onClose, onReExtr
       </div>
 
       {/* ── Column headers ─────────────────────────────────────────────── */}
-      <div className="bg-[#1E3A5F] text-white text-[11px] font-semibold flex shrink-0">
+      <div className="bg-[#1aa347] text-white text-[11px] font-semibold flex shrink-0">
         {['Page', 'Field', 'Value'].map(col => (
           <div
             key={col}
