@@ -55,8 +55,8 @@ export default function ViewerToolbar({
         <button
           className={`p-1.5 rounded transition-colors ${
             tool === t
-              ? 'bg-green-100 text-green-700'
-              : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+              ? 'bg-primary/15 text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           }`}
           onClick={() => onToolChange(t)}
           aria-label={label}
@@ -78,7 +78,7 @@ export default function ViewerToolbar({
     <Tooltip>
       <TooltipTrigger asChild>
         <button
-          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100
+          className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted
                      disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           onClick={onClick}
           disabled={disabled}
@@ -92,12 +92,12 @@ export default function ViewerToolbar({
   );
 
   return (
-    <div className="h-10 bg-white border-b border-gray-200 flex items-center px-3 gap-2 shrink-0 overflow-x-auto">
+    <div className="h-10 bg-card border-b border-border flex items-center px-3 gap-2 shrink-0 overflow-x-auto">
 
       {/* Page navigation */}
       <div className="flex items-center gap-0.5 shrink-0">
         <button
-          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 transition-colors"
+          className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 transition-colors"
           disabled={currentPage <= 1}
           onClick={() => onPageChange(currentPage - 1)}
           aria-label="Previous page"
@@ -109,7 +109,7 @@ export default function ViewerToolbar({
           type="number"
           min={1}
           max={totalPages}
-          className="w-10 h-7 text-center text-xs bg-gray-100 rounded border-none text-gray-700 outline-none focus:ring-1 focus:ring-green-400"
+          className="w-10 h-7 text-center text-xs bg-muted rounded border-none text-foreground outline-none focus:ring-1 focus:ring-primary"
           value={currentPage}
           onChange={e => {
             const n = parseInt(e.target.value);
@@ -118,10 +118,10 @@ export default function ViewerToolbar({
           aria-label="Current page"
         />
 
-        <span className="text-xs text-gray-400 px-1">/ {totalPages}</span>
+        <span className="text-xs text-muted-foreground px-1">/ {totalPages}</span>
 
         <button
-          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 transition-colors"
+          className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 transition-colors"
           disabled={currentPage >= totalPages}
           onClick={() => onPageChange(currentPage + 1)}
           aria-label="Next page"
@@ -131,12 +131,12 @@ export default function ViewerToolbar({
       </div>
 
       {/* Separator */}
-      <div className="w-px h-5 bg-gray-200 shrink-0" />
+      <div className="w-px h-5 bg-border shrink-0" />
 
       {/* Zoom controls */}
       <div className="flex items-center gap-0.5 shrink-0">
         <button
-          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           onClick={() => onZoomChange(Math.max(0.3, parseFloat((zoom - 0.15).toFixed(2))))}
           aria-label="Zoom out"
         >
@@ -144,7 +144,7 @@ export default function ViewerToolbar({
         </button>
 
         <Select value={String(zoom)} onValueChange={v => onZoomChange(Number(v))}>
-          <SelectTrigger className="w-20 h-7 text-xs bg-gray-100 border-none text-gray-700 focus:ring-0">
+          <SelectTrigger className="w-20 h-7 text-xs bg-muted border-none text-foreground focus:ring-0">
             <SelectValue>{Math.round(zoom * 100)}%</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -155,7 +155,7 @@ export default function ViewerToolbar({
         </Select>
 
         <button
-          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           onClick={() => onZoomChange(Math.min(2.5, parseFloat((zoom + 0.15).toFixed(2))))}
           aria-label="Zoom in"
         >
@@ -164,7 +164,7 @@ export default function ViewerToolbar({
       </div>
 
       {/* Separator */}
-      <div className="w-px h-5 bg-gray-200 shrink-0" />
+      <div className="w-px h-5 bg-border shrink-0" />
 
       {/* Drawing tools */}
       <div className="flex items-center gap-0.5 shrink-0">
@@ -174,7 +174,7 @@ export default function ViewerToolbar({
       </div>
 
       {/* Separator */}
-      <div className="w-px h-5 bg-gray-200 shrink-0" />
+      <div className="w-px h-5 bg-border shrink-0" />
 
       {/* Bulk actions */}
       <div className="flex items-center gap-0.5 shrink-0">
@@ -204,7 +204,7 @@ export default function ViewerToolbar({
       </div>
 
       {/* Separator */}
-      <div className="w-px h-5 bg-gray-200 shrink-0" />
+      <div className="w-px h-5 bg-border shrink-0" />
 
       {/* Search */}
       <Tooltip>
@@ -212,8 +212,8 @@ export default function ViewerToolbar({
           <button
             className={`p-1.5 rounded transition-colors shrink-0 ${
               searchOpen
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                ? 'bg-primary/15 text-primary'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
             }`}
             onClick={onSearchToggle}
             aria-label="Search text (Ctrl+F)"
@@ -240,7 +240,7 @@ export default function ViewerToolbar({
           </TooltipContent>
         </Tooltip>
       ) : (
-        <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 cursor-default shrink-0">
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground cursor-default shrink-0">
           Native Text
         </span>
       )}
@@ -248,7 +248,7 @@ export default function ViewerToolbar({
       {/* Extract */}
       <Button
         size="sm"
-        className="bg-green-600 text-white hover:bg-green-700 font-semibold text-xs h-7 px-4 shrink-0"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs h-7 px-4 shrink-0"
         disabled={!hasHighlights || extracting}
         onClick={onExtract}
       >
@@ -314,7 +314,7 @@ function PageRangeButton({
         <TooltipTrigger asChild>
           <button
             ref={btnRef}
-            className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100
+            className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted
                        disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-0.5"
             onClick={() => setOpen(o => !o)}
             disabled={disabled}
@@ -330,10 +330,10 @@ function PageRangeButton({
       {open && pos && (
         <div
           ref={popRef}
-          className="fixed bg-white border border-gray-200 rounded-lg shadow-xl p-3 z-[100] w-56"
+          className="fixed bg-card border border-border rounded-lg shadow-xl p-3 z-[100] w-56"
           style={{ top: pos.top, left: pos.left }}
         >
-          <p className="text-xs font-semibold text-gray-600 mb-2">Apply to page range</p>
+          <p className="text-xs font-semibold text-foreground mb-2">Apply to page range</p>
           <div className="flex items-center gap-2 mb-2">
             <Input
               type="number"
@@ -346,7 +346,7 @@ function PageRangeButton({
               onChange={e => setRangeFrom(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
             />
-            <span className="text-xs text-gray-400">–</span>
+            <span className="text-xs text-muted-foreground">–</span>
             <Input
               type="number"
               min={1}

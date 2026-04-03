@@ -10,6 +10,7 @@ import PDFCardList from '@/components/PDFCardList';
 import ProcessingModal from '@/components/ProcessingModal';
 import PDFViewer from '@/components/PDFViewer';
 import ExcelPanel from '@/components/ExcelPanel';
+import ThemeToggle from '@/components/ThemeToggle';
 import type { PDFSession, Highlight, ExtractedRow, DocumentType } from '@/types/utilscraper';
 import { DOCUMENT_TYPES } from '@/types/utilscraper';
 import { processFile, extractRegions } from '@/lib/api';
@@ -245,18 +246,18 @@ export default function Index() {
     activeSession.status !== 'processing';
 
   return (
-    <div className="h-screen flex bg-[#f4f6f8]">
+    <div className="h-screen flex bg-background">
 
       {/* ── Left sidebar: logo + upload + PDF list ─────────────────────── */}
-      <aside className={`${navCollapsed ? 'w-14' : 'w-64'} shrink-0 bg-white border-r border-gray-200
+      <aside className={`${navCollapsed ? 'w-14' : 'w-64'} shrink-0 bg-card border-r border-border
                          flex flex-col transition-all duration-200 z-30 overflow-hidden`}>
 
         {/* Logo row */}
-        <div className={`flex items-center gap-2.5 px-4 h-14 border-b border-gray-100 shrink-0 ${navCollapsed ? 'justify-center' : ''}`}>
-          <div className="w-7 h-7 rounded-lg bg-green-500 flex items-center justify-center shrink-0">
-            <FileText className="w-3.5 h-3.5 text-white" />
+        <div className={`flex items-center gap-2.5 px-4 h-14 border-b border-border shrink-0 ${navCollapsed ? 'justify-center' : ''}`}>
+          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <FileText className="w-3.5 h-3.5 text-primary-foreground" />
           </div>
-          {!navCollapsed && <span className="font-bold text-gray-800 text-sm tracking-tight">UtilScraper</span>}
+          {!navCollapsed && <span className="font-bold text-foreground text-sm tracking-tight">UtilScraper</span>}
         </div>
 
         {/* Scrollable content */}
@@ -265,7 +266,7 @@ export default function Index() {
             /* Collapsed — just icons */
             <div className="flex flex-col items-center gap-2 py-4">
               <button
-                className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center text-green-600"
+                className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary"
                 title="Upload PDFs"
                 onClick={() => setNavCollapsed(false)}
               >
@@ -273,7 +274,7 @@ export default function Index() {
               </button>
               {sessions.length > 0 && (
                 <button
-                  className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500"
+                  className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground"
                   title="Your PDFs"
                   onClick={() => setNavCollapsed(false)}
                 >
@@ -287,8 +288,8 @@ export default function Index() {
               {/* Upload section */}
               <div>
                 <div className="flex items-center gap-2 mb-2.5">
-                  <Upload className="w-3.5 h-3.5 text-green-600" />
-                  <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Upload PDFs</h2>
+                  <Upload className="w-3.5 h-3.5 text-primary" />
+                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Upload PDFs</h2>
                 </div>
                 <UploadZone
                   compact={hasUploaded}
@@ -304,9 +305,9 @@ export default function Index() {
 
               {/* Instructions — shown before first upload */}
               {!hasUploaded && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-3">
-                  <p className="text-[11px] font-semibold text-green-700 mb-1.5">How it works</p>
-                  <ol className="text-[11px] text-green-700 space-y-1 list-decimal list-inside leading-relaxed">
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
+                  <p className="text-[11px] font-semibold text-primary mb-1.5">How it works</p>
+                  <ol className="text-[11px] text-primary/80 space-y-1 list-decimal list-inside leading-relaxed">
                     <li>Choose document type</li>
                     <li>Upload PDF files</li>
                     <li>Draw boxes over the values</li>
@@ -321,9 +322,9 @@ export default function Index() {
               {sessions.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2.5">
-                    <FileSearch className="w-3.5 h-3.5 text-gray-400" />
-                    <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Your PDFs</h2>
-                    <span className="ml-auto text-[10px] text-gray-400">{sessions.length} file{sessions.length !== 1 ? 's' : ''}</span>
+                    <FileSearch className="w-3.5 h-3.5 text-muted-foreground" />
+                    <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Your PDFs</h2>
+                    <span className="ml-auto text-[10px] text-muted-foreground/60">{sessions.length} file{sessions.length !== 1 ? 's' : ''}</span>
                   </div>
                   <PDFCardList
                     sessions={sessions}
@@ -337,10 +338,10 @@ export default function Index() {
         </div>
 
         {/* Collapse toggle */}
-        <div className="p-2 border-t border-gray-100 shrink-0">
+        <div className="p-2 border-t border-border shrink-0">
           <button
             className="w-full flex items-center justify-center p-2 rounded-lg
-                       text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
+                       text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             onClick={() => setNavCollapsed(v => !v)}
             title={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
@@ -353,19 +354,22 @@ export default function Index() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Top bar */}
-        <header className="h-14 bg-white border-b border-gray-200 flex items-center px-6 gap-4 shrink-0">
+        <header className="h-14 bg-card border-b border-border flex items-center px-6 gap-4 shrink-0">
           <div>
-            <h1 className="text-base font-bold text-gray-800">Bill Scraper</h1>
-            <p className="text-[11px] text-gray-400">Upload bills · highlight values · export to Excel</p>
+            <h1 className="text-base font-bold text-foreground">Bill Scraper</h1>
+            <p className="text-[11px] text-muted-foreground">Upload bills · highlight values · export to Excel</p>
           </div>
           {backendDown && (
-            <div className="ml-auto flex items-center gap-2 bg-red-50 border border-red-200
-                            text-red-600 text-xs px-3 py-1.5 rounded-lg">
+            <div className="ml-auto flex items-center gap-2 bg-destructive/10 border border-destructive/20
+                            text-destructive text-xs px-3 py-1.5 rounded-lg">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               Backend offline — OCR unavailable
               <button className="underline ml-1" onClick={() => setBackendDown(false)}>Dismiss</button>
             </div>
           )}
+          <div className="ml-auto">
+            <ThemeToggle />
+          </div>
         </header>
 
         {/* Content */}
@@ -373,7 +377,7 @@ export default function Index() {
 
           {/* ── Tab bar ──────────────────────────────────────────────── */}
           {tabSessions.length > 0 && (
-            <div className="bg-[#e8eaed] flex items-end overflow-x-auto shrink-0 px-1 pt-1 gap-px">
+            <div className="bg-muted flex items-end overflow-x-auto shrink-0 px-1 pt-1 gap-px">
               {tabSessions.map(s => {
                 const isActive = s.id === activeTabId;
                 const dt = DOCUMENT_TYPES.find(d => d.value === s.docType);
@@ -406,8 +410,8 @@ export default function Index() {
                       max-w-[200px] min-w-[100px] select-none transition-colors
                       ${dragTabId === s.id ? 'opacity-40' : ''}
                       ${isActive
-                        ? 'bg-white text-gray-800 font-medium'
-                        : 'bg-[#dcdfe3] text-gray-500 hover:bg-[#d3d6da]'
+                        ? 'bg-card text-foreground font-medium'
+                        : 'bg-muted/60 text-muted-foreground hover:bg-muted/80'
                       }`}
                     onClick={() => setActiveTabId(s.id)}
                   >
@@ -419,8 +423,8 @@ export default function Index() {
                     <button
                       className={`p-0.5 rounded transition-colors shrink-0
                         ${isActive
-                          ? 'hover:bg-gray-200 text-gray-400 hover:text-gray-600'
-                          : 'opacity-0 group-hover:opacity-100 hover:bg-gray-300 text-gray-400 hover:text-gray-600'
+                          ? 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                          : 'opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground hover:text-foreground'
                         }`}
                       onClick={e => { e.stopPropagation(); closeTab(s.id); }}
                       title="Close tab"
@@ -449,7 +453,7 @@ export default function Index() {
               </div>
 
               {showExcel && combinedExtractedData.length > 0 && (
-                <div className="w-2/5 border-l border-gray-200">
+                <div className="w-2/5 border-l border-border">
                   <ExcelPanel
                     data={combinedExtractedData}
                     filename={sessions.filter(s => s.extractedData.length > 0).map(s => s.filename).join(', ')}
@@ -472,13 +476,13 @@ export default function Index() {
             /* Empty state */
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
-                <div className="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-4">
-                  <FileSearch className="w-8 h-8 text-green-400" />
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <FileSearch className="w-8 h-8 text-primary/50" />
                 </div>
-                <p className="text-sm font-semibold text-gray-600">
+                <p className="text-sm font-semibold text-foreground/70">
                   {hasUploaded ? 'Select a PDF from the sidebar to view' : 'Upload a PDF to get started'}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {hasUploaded ? 'Click any file on the left' : 'Use the upload panel on the left'}
                 </p>
               </div>
