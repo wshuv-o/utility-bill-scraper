@@ -28,6 +28,7 @@ export default function Index() {
   const [backendDown, setBackendDown]           = useState(false);
   const [navCollapsed, setNavCollapsed]         = useState(false);
   const [pendingDocType, setPendingDocType]     = useState<DocumentType>('utility_bill');
+  const [dragTabId, setDragTabId]               = useState<string | null>(null);
 
   const activeSession = sessions.find(s => s.id === activeTabId);
   const hasUploaded   = sessions.length > 0 || pendingFiles.length > 0;
@@ -114,6 +115,7 @@ export default function Index() {
         return merged;
       });
       setActiveTabId(newSessionIds[0]);
+      setNavCollapsed(true);
     }
     setPendingFiles([]); setProcessing(false);
   }, [pendingFiles, pendingDocType, activeTabId]);
@@ -378,8 +380,31 @@ export default function Index() {
                 return (
                   <div
                     key={s.id}
-                    className={`group flex items-center gap-1.5 pl-3 pr-1 py-1.5 rounded-t-lg text-xs cursor-pointer
+                    draggable
+                    onDragStart={e => {
+                      setDragTabId(s.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragOver={e => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={e => {
+                      e.preventDefault();
+                      if (dragTabId && dragTabId !== s.id) {
+                        setOpenTabs(prev => {
+                          const next = prev.filter(t => t !== dragTabId);
+                          const dropIdx = next.indexOf(s.id);
+                          next.splice(dropIdx, 0, dragTabId);
+                          return next;
+                        });
+                      }
+                      setDragTabId(null);
+                    }}
+                    onDragEnd={() => setDragTabId(null)}
+                    className={`group flex items-center gap-1.5 pl-3 pr-1 py-1.5 rounded-t-lg text-xs cursor-grab
                       max-w-[200px] min-w-[100px] select-none transition-colors
+                      ${dragTabId === s.id ? 'opacity-40' : ''}
                       ${isActive
                         ? 'bg-white text-gray-800 font-medium'
                         : 'bg-[#dcdfe3] text-gray-500 hover:bg-[#d3d6da]'

@@ -29,16 +29,18 @@ export default function FieldLabelPicker({ x, y, docType, onSelect, onCancel }: 
       onMouseDown={e => e.stopPropagation()}
     >
       <p className="text-xs font-semibold text-muted-foreground px-2 py-1">Label this field:</p>
-      {labels.map(f => (
-        <button
-          key={f.value}
-          className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-muted flex items-center gap-2"
-          onClick={() => onSelect(f.value)}
-        >
-          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: f.color }} />
-          {f.label}
-        </button>
-      ))}
+      <div className={labels.length > 5 ? 'max-h-[180px] overflow-y-auto custom-scrollbar' : ''}>
+        {labels.map(f => (
+          <button
+            key={f.value}
+            className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-muted flex items-center gap-2"
+            onClick={() => onSelect(f.value)}
+          >
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: f.color }} />
+            {f.label}
+          </button>
+        ))}
+      </div>
       {!showCustom ? (
         <button
           className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-muted text-muted-foreground"

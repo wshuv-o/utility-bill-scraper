@@ -42,9 +42,14 @@ export default function PDFViewer({
   const [numPages, setNumPages]         = useState<number | null>(null);
   const [fileUrl, setFileUrl]           = useState<string | null>(null);
   const [pdfPageWidth, setPdfPageWidth] = useState<number | null>(null);
+  const [searchOpen, setSearchOpen]     = useState(false);
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [searchResults, setSearchResults] = useState<{ x: number; y: number; width: number; height: number }[]>([]);
 
   const pageRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfDocRef = useRef<any>(null);
 
   const totalPages = numPages ?? session.total_pages;
 
@@ -275,14 +280,62 @@ export default function PDFViewer({
     onApplyToAllPdfs(session.highlights);
   }, [allHighlights, session.highlights, onApplyToAllPdfs]);
 
-  // Close picker on Escape
+  // -----------------------------------------------------------------------
+  // Text search
+  // -----------------------------------------------------------------------
+  const handleSearch = useCallback(async (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim() || !pdfDocRef.current) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const page = await pdfDocRef.current.getPage(currentPage);
+      const content = await page.getTextContent();
+      const vp = page.getViewport({ scale: 1 });
+      const items = content.items as { str: string; transform: number[]; width?: number; height?: number }[];
+      const queryLower = query.toLowerCase();
+      const hits: { x: number; y: number; width: number; height: number }[] = [];
+
+      for (const item of items) {
+        if (!item.str || !item.transform) continue;
+        if (!item.str.toLowerCase().includes(queryLower)) continue;
+        const x = item.transform[4];
+        const itemTop = vp.height - item.transform[5];
+        const itemH = item.height || Math.abs(item.transform[3]) || 12;
+        const itemW = item.width || item.str.length * 6;
+        hits.push({
+          x: x / vp.width,
+          y: itemTop / vp.height,
+          width: itemW / vp.width,
+          height: itemH / vp.height,
+        });
+      }
+      setSearchResults(hits);
+    } catch { setSearchResults([]); }
+  }, [currentPage]);
+
+  // Re-run search when page changes
+  useEffect(() => {
+    if (searchOpen && searchQuery) handleSearch(searchQuery);
+    else setSearchResults([]);
+  }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close picker / search on Escape, toggle search with Ctrl+F
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPickerPos(null);
+      if (e.key === 'Escape') {
+        if (searchOpen) { setSearchOpen(false); setSearchQuery(''); setSearchResults([]); }
+        else setPickerPos(null);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setSearchOpen(o => !o);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [searchOpen]);
 
   // -----------------------------------------------------------------------
   // Render
@@ -316,7 +369,39 @@ export default function PDFViewer({
         onApplyToAllPdfs={handleApplyToAllPdfs}
         onEraseAllPages={handleEraseAllPages}
         onApplyToPageRange={handleApplyToPageRange}
+        searchOpen={searchOpen}
+        onSearchToggle={() => {
+          setSearchOpen(o => !o);
+          if (searchOpen) { setSearchQuery(''); setSearchResults([]); }
+        }}
       />
+
+      {/* Search bar */}
+      {searchOpen && (
+        <div className="bg-white border-b border-gray-200 px-3 py-1.5 flex items-center gap-2 shrink-0">
+          <input
+            className="flex-1 h-7 text-xs bg-gray-100 rounded px-2 border-none outline-none focus:ring-1 focus:ring-green-400"
+            placeholder="Search text on this page..."
+            autoFocus
+            value={searchQuery}
+            onChange={e => handleSearch(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); setSearchResults([]); }
+            }}
+          />
+          {searchQuery && (
+            <span className="text-[11px] text-gray-400 shrink-0">
+              {searchResults.length} match{searchResults.length !== 1 ? 'es' : ''}
+            </span>
+          )}
+          <button
+            className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchResults([]); }}
+          >
+            <span className="text-xs">Esc</span>
+          </button>
+        </div>
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-auto bg-[#525659] relative custom-scrollbar pr-6">
         {/* First-use hint overlay */}
@@ -348,6 +433,7 @@ export default function PDFViewer({
               file={fileUrl}
               onLoadSuccess={async (pdf) => {
                 setNumPages(pdf.numPages);
+                pdfDocRef.current = pdf;
                 // Read intrinsic width of page 1 to compute fit-width zoom
                 if (!pdfPageWidth) {
                   try {
@@ -381,6 +467,27 @@ export default function PDFViewer({
               onReExtract={onReExtract}
               tool={tool}
             />
+
+            {/* Search result highlights */}
+            {searchResults.length > 0 && (
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                {searchResults.map((r, i) => (
+                  <div
+                    key={i}
+                    className="absolute rounded-sm"
+                    style={{
+                      left:            `${r.x * 100}%`,
+                      top:             `${r.y * 100}%`,
+                      width:           `${r.width * 100}%`,
+                      height:          `${r.height * 100}%`,
+                      backgroundColor: 'rgba(250, 204, 21, 0.4)',
+                      border:          '1px solid rgba(250, 204, 21, 0.8)',
+                      zIndex:          5,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
 
             {pickerPos && (
               <FieldLabelPicker

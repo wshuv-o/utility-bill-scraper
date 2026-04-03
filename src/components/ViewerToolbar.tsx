@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   MousePointer2, Square, Eraser, Loader2,
-  CopyPlus, Files, Trash2, ListChecks, ChevronDown,
+  CopyPlus, Files, Trash2, ListChecks, ChevronDown, Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -28,6 +28,8 @@ interface ViewerToolbarProps {
   onApplyToAllPdfs: () => void;
   onEraseAllPages: () => void;
   onApplyToPageRange: (from: number, to: number) => void;
+  searchOpen: boolean;
+  onSearchToggle: () => void;
 }
 
 const ZOOM_OPTIONS = [
@@ -44,6 +46,7 @@ export default function ViewerToolbar({
   onPageChange, onZoomChange, onToolChange,
   onExtract, extracting, hasHighlights,
   onApplyToAllPages, onApplyToAllPdfs, onEraseAllPages, onApplyToPageRange,
+  searchOpen, onSearchToggle,
 }: ViewerToolbarProps) {
 
   const toolBtn = (t: ViewerTool, icon: React.ReactNode, label: string) => (
@@ -199,6 +202,27 @@ export default function ViewerToolbar({
           onApply={onApplyToPageRange}
         />
       </div>
+
+      {/* Separator */}
+      <div className="w-px h-5 bg-gray-200 shrink-0" />
+
+      {/* Search */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            className={`p-1.5 rounded transition-colors shrink-0 ${
+              searchOpen
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+            onClick={onSearchToggle}
+            aria-label="Search text (Ctrl+F)"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Search text (Ctrl+F)</TooltipContent>
+      </Tooltip>
 
       {/* Spacer */}
       <div className="flex-1" />
