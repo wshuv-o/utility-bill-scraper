@@ -119,6 +119,13 @@
     @apply bg-background text-foreground font-sans;
     font-family: 'Inter', system-ui, sans-serif;
   }
+
+  /* Smooth theme transition */
+  *,
+  *::before,
+  *::after {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, fill 0.15s ease, box-shadow 0.2s ease;
+  }
 }
 
 /* Highlight animation */

@@ -2,7 +2,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
-  FileText, Upload, ChevronLeft, ChevronRight,
+  Upload, ChevronLeft, ChevronRight,
   AlertTriangle, FileSearch, X,
 } from 'lucide-react';
 import UploadZone from '@/components/UploadZone';
@@ -254,10 +254,8 @@ export default function Index() {
 
         {/* Logo row */}
         <div className={`flex items-center gap-2.5 px-4 h-14 border-b border-border shrink-0 ${navCollapsed ? 'justify-center' : ''}`}>
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <FileText className="w-3.5 h-3.5 text-primary-foreground" />
-          </div>
-          {!navCollapsed && <span className="font-bold text-foreground text-sm tracking-tight">UtilScraper</span>}
+          <img src="/favicon.ico" alt="Pexl" className="w-7 h-7 rounded-lg shrink-0" />
+          {!navCollapsed && <span className="font-bold text-foreground text-sm tracking-tight">Pexl</span>}
         </div>
 
         {/* Scrollable content */}
@@ -356,8 +354,8 @@ export default function Index() {
         {/* Top bar */}
         <header className="h-14 bg-card border-b border-border flex items-center px-6 gap-4 shrink-0">
           <div>
-            <h1 className="text-base font-bold text-foreground">Bill Scraper</h1>
-            <p className="text-[11px] text-muted-foreground">Upload bills · highlight values · export to Excel</p>
+            <h1 className="text-base font-bold text-foreground">Pexl</h1>
+            <p className="text-[11px] text-muted-foreground">Upload PDFs · highlight values · export to Excel</p>
           </div>
           {backendDown && (
             <div className="ml-auto flex items-center gap-2 bg-destructive/10 border border-destructive/20

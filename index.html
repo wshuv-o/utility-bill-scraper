@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- TODO: Set the document title to the name of your application -->
-    <title>UtilityScraper — Utility Bill PDF Extractor</title>
+    <title>Pexl — PDF Data Extractor</title>
     <meta name="description" content="Extract data from utility bill PDFs with OCR, region highlighting, and Excel export.">
     <meta name="author" content="Lovable" />
 
@@ -17,13 +17,17 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Lovable" />
     <meta name="twitter:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/89ebbca7-43aa-480f-aa09-1eb6f3c6d65a/id-preview-fe889ba7--cd150b5c-7626-4a4d-b786-6bb1de20e5f5.lovable.app-1774870926093.png">
-    <meta property="og:title" content="UtilityScraper — Utility Bill PDF Extractor">
-  <meta name="twitter:title" content="UtilityScraper — Utility Bill PDF Extractor">
+    <meta property="og:title" content="Pexl — PDF Data Extractor">
+  <meta name="twitter:title" content="Pexl — PDF Data Extractor">
   <meta property="og:description" content="Extract data from utility bill PDFs with OCR, region highlighting, and Excel export.">
   <meta name="twitter:description" content="Extract data from utility bill PDFs with OCR, region highlighting, and Excel export.">
 </head>
 
   <body>
+    <script>
+      // Apply saved theme before render to prevent flash
+      if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -13,18 +13,18 @@ function StatusBadge({ session }: { session: PDFSession }) {
 
   switch (session.status) {
     case 'uploading':
-      return <span className="flex items-center gap-1 text-[11px] text-gray-400"><Loader2 className="w-3 h-3 animate-spin" />Uploading...</span>;
+      return <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" />Uploading...</span>;
     case 'processing':
       return <span className="flex items-center gap-1 text-[11px] text-blue-500"><Loader2 className="w-3 h-3 animate-spin" />Analysing...</span>;
     case 'ready':
       return (
         <span className="flex items-center gap-1.5 flex-wrap">
           {ocrCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{ocrCount} OCR</span>}
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Ready</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium">Ready</span>
         </span>
       );
     case 'extracted':
-      return <span className="flex items-center gap-1 text-[11px] text-green-600 font-medium"><Check className="w-3 h-3" />Extracted</span>;
+      return <span className="flex items-center gap-1 text-[11px] text-primary font-medium"><Check className="w-3 h-3" />Extracted</span>;
     default:
       return null;
   }
@@ -48,19 +48,19 @@ export default function PDFCardList({ sessions, expandedId, onToggle }: PDFCardL
             aria-disabled={isLoading}
             className={[
               'w-full text-left rounded-lg px-3 py-2.5 flex items-center gap-2.5 transition-colors',
-              isLoading  ? 'opacity-60 cursor-not-allowed bg-gray-50' :
-              expanded   ? 'bg-green-50 border border-green-200 cursor-pointer' :
-                           'bg-gray-50 border border-transparent hover:border-gray-200 hover:bg-white cursor-pointer',
+              isLoading  ? 'opacity-60 cursor-not-allowed bg-muted/50' :
+              expanded   ? 'bg-primary/10 border border-primary/20 cursor-pointer' :
+                           'bg-muted/50 border border-transparent hover:border-border hover:bg-card cursor-pointer',
             ].join(' ')}
             onClick={() => !isLoading && onToggle(s.id)}
             onKeyDown={e => { if (!isLoading && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onToggle(s.id); } }}
           >
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${expanded ? 'bg-green-100' : 'bg-gray-200'}`}>
-              <FileText className={`w-3.5 h-3.5 ${expanded ? 'text-green-600' : 'text-gray-500'}`} />
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${expanded ? 'bg-primary/15' : 'bg-muted'}`}>
+              <FileText className={`w-3.5 h-3.5 ${expanded ? 'text-primary' : 'text-muted-foreground'}`} />
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold truncate text-gray-700">{s.filename}</p>
+              <p className="text-xs font-semibold truncate text-foreground">{s.filename}</p>
               <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
                 {(() => {
                   const dt = DOCUMENT_TYPES.find(d => d.value === s.docType);
@@ -78,9 +78,9 @@ export default function PDFCardList({ sessions, expandedId, onToggle }: PDFCardL
             </div>
 
             {s.total_pages > 0 && (
-              <span className="text-[10px] text-gray-400 shrink-0">{s.total_pages}p</span>
+              <span className="text-[10px] text-muted-foreground shrink-0">{s.total_pages}p</span>
             )}
-            <ChevronRight className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+            <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
           </div>
         );
       })}

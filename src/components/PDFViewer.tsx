@@ -378,9 +378,9 @@ export default function PDFViewer({
 
       {/* Search bar */}
       {searchOpen && (
-        <div className="bg-white border-b border-gray-200 px-3 py-1.5 flex items-center gap-2 shrink-0">
+        <div className="bg-card border-b border-border px-3 py-1.5 flex items-center gap-2 shrink-0">
           <input
-            className="flex-1 h-7 text-xs bg-gray-100 rounded px-2 border-none outline-none focus:ring-1 focus:ring-green-400"
+            className="flex-1 h-7 text-xs bg-muted rounded px-2 border-none outline-none focus:ring-1 focus:ring-primary text-foreground"
             placeholder="Search text on this page..."
             autoFocus
             value={searchQuery}
@@ -390,12 +390,12 @@ export default function PDFViewer({
             }}
           />
           {searchQuery && (
-            <span className="text-[11px] text-gray-400 shrink-0">
+            <span className="text-[11px] text-muted-foreground shrink-0">
               {searchResults.length} match{searchResults.length !== 1 ? 'es' : ''}
             </span>
           )}
           <button
-            className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchResults([]); }}
           >
             <span className="text-xs">Esc</span>
@@ -403,7 +403,7 @@ export default function PDFViewer({
         </div>
       )}
 
-      <div ref={scrollRef} className="flex-1 overflow-auto bg-[#525659] relative custom-scrollbar pr-6">
+      <div ref={scrollRef} className="flex-1 overflow-auto bg-viewer relative custom-scrollbar pr-6">
         {/* First-use hint overlay */}
         {showFirstHint && tool === 'highlight' && allHighlights.length === 0 && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">

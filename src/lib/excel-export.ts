@@ -215,5 +215,5 @@ export function exportToExcel(
     if (ws) XLSX.utils.book_append_sheet(wb, ws, 'Extracted Data');
   }
 
-  XLSX.writeFile(wb, `UtilScraper_${provider.replace(/\s+/g, '')}_${dateStr}.xlsx`);
+  XLSX.writeFile(wb, `Pexl_${provider.replace(/\s+/g, '')}_${dateStr}.xlsx`);
 }
